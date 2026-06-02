@@ -16,6 +16,10 @@ function getPaymentStatus(lead: Lead) {
   return lead.paymentStatus ?? "Не оплачено";
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value)}%`;
+}
+
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [events, setEvents] = useState<LeadEvent[]>([]);
@@ -62,6 +66,26 @@ export default function Home() {
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
   const paidRevenue = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
   const selectedLeadEvents = selectedLead ? events.filter((event) => event.leadId === selectedLead.id) : [];
+  const projectStats = projects
+    .filter((project): project is LeadSource => project !== "Все")
+    .map((project) => {
+      const projectLeads = leads.filter((lead) => lead.project === project);
+      const activeLeads = projectLeads.filter((lead) => lead.status !== "Закрыта");
+      const paidLeads = projectLeads.filter((lead) => getPaymentStatus(lead) === "Оплачено");
+      const activeRevenue = activeLeads.reduce((sum, lead) => sum + lead.budget, 0);
+      const paidProjectRevenue = paidLeads.reduce((sum, lead) => sum + lead.budget, 0);
+      const conversion = projectLeads.length ? (paidLeads.length / projectLeads.length) * 100 : 0;
+
+      return {
+        project,
+        activeCount: activeLeads.length,
+        activeRevenue,
+        conversion,
+        paidCount: paidLeads.length,
+        paidRevenue: paidProjectRevenue,
+        totalCount: projectLeads.length,
+      };
+    });
 
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
@@ -200,6 +224,48 @@ export default function Home() {
             <strong>{formatMoney(paidRevenue)} ₽</strong>
             <small>фактически оплаченные заявки</small>
           </article>
+        </section>
+
+        <section className="projectAnalytics" aria-label="Эффективность проектов">
+          <div className="sectionHead">
+            <div>
+              <p className="eyebrow">аналитика</p>
+              <h2>Эффективность проектов</h2>
+            </div>
+            <span>Сравнение заявок и оплаты по подключенным сайтам</span>
+          </div>
+          <div className="projectGrid">
+            {projectStats.map((stat) => (
+              <article className="projectCard" key={stat.project}>
+                <header>
+                  <strong>{stat.project}</strong>
+                  <span>{stat.totalCount} заявок</span>
+                </header>
+                <div className="projectNumbers">
+                  <div>
+                    <small>В работе</small>
+                    <b>{stat.activeCount}</b>
+                  </div>
+                  <div>
+                    <small>Потенциал</small>
+                    <b>{formatMoney(stat.activeRevenue)} ₽</b>
+                  </div>
+                  <div>
+                    <small>Оплачено</small>
+                    <b>{formatMoney(stat.paidRevenue)} ₽</b>
+                  </div>
+                  <div>
+                    <small>Конверсия</small>
+                    <b>{formatPercent(stat.conversion)}</b>
+                  </div>
+                </div>
+                <div className="conversionBar" aria-hidden="true">
+                  <span style={{ width: `${Math.min(100, stat.conversion)}%` }} />
+                </div>
+                <p>{stat.paidCount} из {stat.totalCount || 0} заявок оплачено</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="contentGrid" id="leads">
