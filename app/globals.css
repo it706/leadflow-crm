@@ -192,7 +192,8 @@ h2 {
 .topPanel button,
 .filterRow button,
 .sourceRow button,
-.statusActions button {
+.statusActions button,
+.paymentActions button {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 11px 15px;
@@ -329,9 +330,11 @@ input:focus {
 .filterRow button.active,
 .sourceRow button.active,
 .statusActions button.active,
+.paymentActions button.active,
 .filterRow button:hover,
 .sourceRow button:hover,
-.statusActions button:hover {
+.statusActions button:hover,
+.paymentActions button:hover {
   color: var(--panel);
   border-color: var(--accent);
   background: var(--accent);
@@ -378,8 +381,8 @@ input:focus {
   white-space: nowrap;
 }
 
-.priority,
-.statusBadge {
+.statusBadge,
+.paymentBadge {
   display: inline-flex;
   min-height: 30px;
   align-items: center;
@@ -390,26 +393,17 @@ input:focus {
   font-weight: 820;
 }
 
-.priority {
-  background: var(--soft);
+.statusBadge {
+  color: var(--accent-dark);
+  background: #dfeee6;
 }
 
-.priority.высокий {
+.paymentBadge {
   color: #7d2f29;
   background: #f7dfdc;
 }
 
-.priority.средний {
-  color: #745029;
-  background: #f3e7d4;
-}
-
-.priority.низкий {
-  color: #476455;
-  background: #dfebe3;
-}
-
-.statusBadge {
+.paymentBadge.paid {
   color: var(--accent-dark);
   background: #dfeee6;
 }
@@ -492,6 +486,12 @@ dd {
   gap: 8px;
 }
 
+.paymentActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 @media (max-width: 1180px) {
   .appShell,
   .contentGrid {
@@ -549,7 +549,8 @@ dd {
   .sidebar nav,
   .metrics,
   .flowInfo,
-  .statusActions {
+  .statusActions,
+  .paymentActions {
     grid-template-columns: 1fr;
   }
 

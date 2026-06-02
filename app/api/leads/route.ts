@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addLead, getLeads, updateLeadStatus, type IncomingLead, type LeadStatus } from "../../data/leads";
+import { addLead, getLeads, updateLeadPaymentStatus, updateLeadStatus, type IncomingLead, type LeadStatus, type PaymentStatus } from "../../data/leads";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRM_WEBHOOK_SECRET;
@@ -30,18 +30,33 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const payload = (await request.json().catch(() => null)) as { id?: number; status?: LeadStatus } | null;
-  const statuses: LeadStatus[] = ["Новая", "В работе", "Счет отправлен", "Закрыта"];
+  const payload = (await request.json().catch(() => null)) as { id?: number; status?: LeadStatus; paymentStatus?: PaymentStatus } | null;
+  const statuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
+  const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 
-  if (!payload?.id || !payload.status || !statuses.includes(payload.status)) {
-    return NextResponse.json({ message: "Invalid status data" }, { status: 400 });
+  if (!payload?.id) {
+    return NextResponse.json({ message: "Invalid lead id" }, { status: 400 });
   }
 
-  const lead = await updateLeadStatus(payload.id, payload.status);
+  if (payload.status && statuses.includes(payload.status)) {
+    const lead = await updateLeadStatus(payload.id, payload.status);
 
-  if (!lead) {
-    return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, lead });
   }
 
-  return NextResponse.json({ ok: true, lead });
+  if (payload.paymentStatus && paymentStatuses.includes(payload.paymentStatus)) {
+    const lead = await updateLeadPaymentStatus(payload.id, payload.paymentStatus);
+
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, lead });
+  }
+
+  return NextResponse.json({ message: "Invalid status data" }, { status: 400 });
 }

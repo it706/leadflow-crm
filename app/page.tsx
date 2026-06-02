@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Lead, type LeadSource, type LeadStatus } from "./data/leads";
+import { type Lead, type LeadSource, type LeadStatus, type PaymentStatus } from "./data/leads";
 
-const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Счет отправлен", "Закрыта"];
+const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Закрыта"];
+const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 const projects: Array<"Все" | LeadSource> = ["Все", "NordCut", "Valery's Coffee", "Ручная заявка"];
 
 function formatMoney(value: number) {
@@ -48,10 +49,9 @@ export default function Home() {
 
   const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0] ?? leads[0];
   const openLeads = leads.filter((lead) => lead.status !== "Закрыта");
-  const inWorkLeads = leads.filter((lead) => lead.status === "В работе" || lead.status === "Счет отправлен");
-  const pipeline = openLeads.reduce((sum, lead) => sum + lead.budget, 0);
+  const inWorkLeads = leads.filter((lead) => lead.status === "В работе");
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
-  const closedRevenue = leads.filter((lead) => lead.status === "Закрыта").reduce((sum, lead) => sum + lead.budget, 0);
+  const paidRevenue = leads.filter((lead) => lead.paymentStatus === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
 
   async function updateStatus(leadId: number, status: LeadStatus) {
     setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead)));
@@ -62,6 +62,20 @@ export default function Home() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ id: leadId, status }),
+    });
+
+    await loadLeads();
+  }
+
+  async function updatePaymentStatus(leadId: number, paymentStatus: PaymentStatus) {
+    setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, paymentStatus } : lead)));
+
+    await fetch("/api/leads", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: leadId, paymentStatus }),
     });
 
     await loadLeads();
@@ -130,17 +144,17 @@ export default function Home() {
           <article>
             <span>Заявки в работе</span>
             <strong>{inWorkLeads.length}</strong>
-            <small>статусы в работе и счет отправлен</small>
+            <small>активные обращения клиентов</small>
           </article>
           <article>
             <span>Выручка в работе</span>
             <strong>{formatMoney(inWorkRevenue)} ₽</strong>
-            <small>потенциальная сумма активных сделок</small>
+            <small>сумма заявок со статусом в работе</small>
           </article>
           <article>
-            <span>Закрытая выручка</span>
-            <strong>{formatMoney(closedRevenue)} ₽</strong>
-            <small>по завершенным заявкам</small>
+            <span>Оплачено</span>
+            <strong>{formatMoney(paidRevenue)} ₽</strong>
+            <small>фактически оплаченные заявки</small>
           </article>
         </section>
 
@@ -173,7 +187,7 @@ export default function Home() {
             <div className="leadList">
               {filteredLeads.map((lead) => (
                 <button className={selectedLead?.id === lead.id ? "leadRow active" : "leadRow"} key={lead.id} onClick={() => setSelectedLeadId(lead.id)} type="button">
-                  <span className={`priority ${lead.priority.toLowerCase()}`}>{lead.priority}</span>
+                  <span className="statusBadge">{lead.status}</span>
                   <div>
                     <strong>{lead.client}</strong>
                     <small>{lead.phone}</small>
@@ -182,7 +196,7 @@ export default function Home() {
                     <strong>{lead.service}</strong>
                     <small>{lead.project} · {lead.createdAt}</small>
                   </div>
-                  <span className="statusBadge">{lead.status}</span>
+                  <span className={lead.paymentStatus === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{lead.paymentStatus}</span>
                   <strong>{formatMoney(lead.budget)} ₽</strong>
                 </button>
               ))}
@@ -193,7 +207,7 @@ export default function Home() {
             <aside className="leadDetails">
               <div className="detailsHead">
                 <span>#{selectedLead.id}</span>
-                <span className="statusBadge">{selectedLead.status}</span>
+                <span className={selectedLead.paymentStatus === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{selectedLead.paymentStatus}</span>
               </div>
               <h2>{selectedLead.client}</h2>
               <p>{selectedLead.project}</p>
@@ -215,6 +229,14 @@ export default function Home() {
                   <dt>Создана</dt>
                   <dd>{selectedLead.createdAt}</dd>
                 </div>
+                <div>
+                  <dt>Статус</dt>
+                  <dd>{selectedLead.status}</dd>
+                </div>
+                <div>
+                  <dt>Оплата</dt>
+                  <dd>{selectedLead.paymentStatus}</dd>
+                </div>
               </dl>
 
               <div className="commentBox">
@@ -230,6 +252,18 @@ export default function Home() {
                       {status}
                     </button>
                   ))}
+              </div>
+              <div className="paymentActions">
+                {paymentStatuses.map((paymentStatus) => (
+                  <button
+                    className={selectedLead.paymentStatus === paymentStatus ? "active" : ""}
+                    key={paymentStatus}
+                    onClick={() => updatePaymentStatus(selectedLead.id, paymentStatus)}
+                    type="button"
+                  >
+                    {paymentStatus}
+                  </button>
+                ))}
               </div>
             </aside>
           ) : null}
