@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { type Lead, type LeadEvent, type LeadSource, type LeadStatus, type PaymentStatus } from "./data/leads";
 
 const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Закрыта"];
@@ -37,10 +37,20 @@ export default function Home() {
   const [events, setEvents] = useState<LeadEvent[]>([]);
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
   const [activeProject, setActiveProject] = useState<"Все" | LeadSource>("Все");
+  const [isManualFormOpen, setIsManualFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState("");
+  const [manualLead, setManualLead] = useState({
+    budget: "",
+    client: "",
+    comment: "",
+    phone: "",
+    service: "",
+  });
+  const [manualError, setManualError] = useState("");
+  const [isSavingManualLead, setIsSavingManualLead] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   async function loadLeads() {
@@ -200,6 +210,56 @@ export default function Home() {
     await loadLeads();
   }
 
+  async function createManualLead(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const budget = Number(manualLead.budget.replace(/\D/g, ""));
+
+    if (!manualLead.client.trim() || !manualLead.phone.trim() || !manualLead.service.trim()) {
+      setManualError("Заполните имя, телефон и услугу.");
+      return;
+    }
+
+    setIsSavingManualLead(true);
+    setManualError("");
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          budget,
+          client: manualLead.client.trim(),
+          comment: manualLead.comment.trim() || "Ручная заявка добавлена оператором CRM.",
+          phone: manualLead.phone.trim(),
+          project: "Ручная заявка",
+          service: manualLead.service.trim(),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { lead?: Lead; message?: string } | null;
+
+      if (!response.ok || !data?.lead) {
+        setManualError(data?.message ?? "Не удалось создать заявку.");
+        return;
+      }
+
+      setManualLead({
+        budget: "",
+        client: "",
+        comment: "",
+        phone: "",
+        service: "",
+      });
+      setIsManualFormOpen(false);
+      setSelectedLeadId(data.lead.id);
+      await loadLeads();
+    } finally {
+      setIsSavingManualLead(false);
+    }
+  }
+
   function exportCsv() {
     const headers = ["ID", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Создана", "Комментарий"];
     const rows = leads.map((lead) => [
@@ -267,6 +327,9 @@ export default function Home() {
             </p>
           </div>
           <div className="topActions">
+            <button onClick={() => setIsManualFormOpen((current) => !current)} type="button">
+              Новая заявка
+            </button>
             <button onClick={exportCsv} type="button">
               Экспорт CSV
             </button>
@@ -275,6 +338,65 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {isManualFormOpen ? (
+          <section className="manualLeadPanel" aria-label="Ручное добавление заявки">
+            <div>
+              <p className="eyebrow">ручной ввод</p>
+              <h2>Добавить заявку без сайта</h2>
+              <p>Для звонков, личных сообщений и клиентов, которых администратор внес вручную.</p>
+            </div>
+            <form onSubmit={createManualLead}>
+              <label>
+                Клиент
+                <input
+                  onChange={(event) => setManualLead((current) => ({ ...current, client: event.target.value }))}
+                  placeholder="Например: Анна"
+                  value={manualLead.client}
+                />
+              </label>
+              <label>
+                Телефон
+                <input
+                  onChange={(event) => setManualLead((current) => ({ ...current, phone: event.target.value }))}
+                  placeholder="+7 999 000-00-00"
+                  value={manualLead.phone}
+                />
+              </label>
+              <label>
+                Услуга
+                <input
+                  onChange={(event) => setManualLead((current) => ({ ...current, service: event.target.value }))}
+                  placeholder="Например: консультация или заказ кофе"
+                  value={manualLead.service}
+                />
+              </label>
+              <label>
+                Сумма
+                <input
+                  inputMode="numeric"
+                  onChange={(event) => setManualLead((current) => ({ ...current, budget: event.target.value }))}
+                  placeholder="5000"
+                  value={manualLead.budget}
+                />
+              </label>
+              <label className="wideField">
+                Комментарий
+                <input
+                  onChange={(event) => setManualLead((current) => ({ ...current, comment: event.target.value }))}
+                  placeholder="Что важно по заявке"
+                  value={manualLead.comment}
+                />
+              </label>
+              <div className="manualLeadActions">
+                <span>{manualError}</span>
+                <button disabled={isSavingManualLead} type="submit">
+                  {isSavingManualLead ? "Сохраняем" : "Создать заявку"}
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : null}
 
         <section className="flowInfo" id="how">
           <article>

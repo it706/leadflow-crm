@@ -20,6 +20,14 @@ function isAuthorized(request: NextRequest) {
   return request.headers.get("x-crm-secret") === secret;
 }
 
+function isSameOriginRequest(request: NextRequest) {
+  const origin = request.headers.get("origin");
+
+  if (!origin) return false;
+
+  return new URL(origin).host === request.nextUrl.host;
+}
+
 export async function GET() {
   const [leads, events] = await Promise.all([getLeads(), getLeadEvents()]);
 
@@ -27,7 +35,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorized(request) && !isSameOriginRequest(request)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
