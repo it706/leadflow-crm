@@ -17,6 +17,14 @@ export type Lead = {
   comment: string;
 };
 
+export type LeadEvent = {
+  id: number;
+  leadId: number;
+  title: string;
+  description: string;
+  createdAt: string;
+};
+
 export type IncomingLead = {
   client?: string;
   project?: LeadSource;
@@ -37,6 +45,14 @@ type DbLead = {
   budget: number;
   created_at: Date;
   comment: string;
+};
+
+type DbLeadEvent = {
+  id: number;
+  lead_id: number;
+  title: string;
+  description: string;
+  created_at: Date;
 };
 
 const demoLeads: Lead[] = [
@@ -68,12 +84,23 @@ const demoLeads: Lead[] = [
 
 const globalStore = globalThis as typeof globalThis & {
   leadflowLeads?: Lead[];
+  leadflowEvents?: LeadEvent[];
   leadflowSql?: postgres.Sql;
   leadflowDbReady?: boolean;
 };
 
 if (!globalStore.leadflowLeads) {
   globalStore.leadflowLeads = demoLeads;
+}
+
+if (!globalStore.leadflowEvents) {
+  globalStore.leadflowEvents = demoLeads.map((lead, index) => ({
+    id: index + 1,
+    leadId: lead.id,
+    title: "Заявка создана",
+    description: `Источник: ${lead.project}. Сумма: ${lead.budget} ₽.`,
+    createdAt: lead.createdAt,
+  }));
 }
 
 function getDatabaseUrl() {
@@ -118,6 +145,16 @@ function mapDbLead(lead: DbLead): Lead {
   };
 }
 
+function mapDbEvent(event: DbLeadEvent): LeadEvent {
+  return {
+    id: event.id,
+    leadId: event.lead_id,
+    title: event.title,
+    description: event.description,
+    createdAt: formatDate(event.created_at),
+  };
+}
+
 async function ensureTable() {
   const sql = getSql();
 
@@ -140,6 +177,16 @@ async function ensureTable() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS lead_events (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'Не оплачено'
   `;
@@ -152,6 +199,32 @@ async function ensureTable() {
 
   globalStore.leadflowDbReady = true;
   return sql;
+}
+
+async function createEvent(leadId: number, title: string, description: string) {
+  const sql = await ensureTable();
+
+  if (!sql) {
+    const events = globalStore.leadflowEvents ?? [];
+    const event: LeadEvent = {
+      id: Math.max(0, ...events.map((item) => item.id)) + 1,
+      leadId,
+      title,
+      description,
+      createdAt: formatDate(new Date()),
+    };
+
+    globalStore.leadflowEvents = [event, ...events];
+    return event;
+  }
+
+  const [event] = await sql<DbLeadEvent[]>`
+    INSERT INTO lead_events (lead_id, title, description)
+    VALUES (${leadId}, ${title}, ${description})
+    RETURNING id, lead_id, title, description, created_at
+  `;
+
+  return mapDbEvent(event);
 }
 
 function normalizeIncomingLead(payload: IncomingLead) {
@@ -181,6 +254,20 @@ export async function getLeads() {
   return leads.map(mapDbLead);
 }
 
+export async function getLeadEvents() {
+  const sql = await ensureTable();
+
+  if (!sql) return globalStore.leadflowEvents ?? [];
+
+  const events = await sql<DbLeadEvent[]>`
+    SELECT id, lead_id, title, description, created_at
+    FROM lead_events
+    ORDER BY created_at DESC, id DESC
+  `;
+
+  return events.map(mapDbEvent);
+}
+
 export async function addLead(payload: IncomingLead) {
   const lead = normalizeIncomingLead(payload);
   const sql = await ensureTable();
@@ -196,6 +283,7 @@ export async function addLead(payload: IncomingLead) {
     };
 
     globalStore.leadflowLeads = [memoryLead, ...leads];
+    await createEvent(memoryLead.id, "Заявка создана", `Источник: ${memoryLead.project}. Сумма: ${memoryLead.budget} ₽.`);
     return memoryLead;
   }
 
@@ -205,7 +293,10 @@ export async function addLead(payload: IncomingLead) {
     RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
   `;
 
-  return mapDbLead(createdLead);
+  const mappedLead = mapDbLead(createdLead);
+  await createEvent(mappedLead.id, "Заявка создана", `Источник: ${mappedLead.project}. Сумма: ${mappedLead.budget} ₽.`);
+
+  return mappedLead;
 }
 
 export async function updateLeadStatus(id: number, status: LeadStatus) {
@@ -213,9 +304,22 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
 
   if (!sql) {
     const leads = globalStore.leadflowLeads ?? demoLeads;
+    const previousLead = leads.find((lead) => lead.id === id);
     globalStore.leadflowLeads = leads.map((lead) => (lead.id === id ? { ...lead, status } : lead));
-    return globalStore.leadflowLeads.find((lead) => lead.id === id);
+    const updatedLead = globalStore.leadflowLeads.find((lead) => lead.id === id);
+
+    if (previousLead && previousLead.status !== status) {
+      await createEvent(id, "Статус изменен", `${previousLead.status} → ${status}`);
+    }
+
+    return updatedLead;
   }
+
+  const [previousLead] = await sql<DbLead[]>`
+    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    FROM leads
+    WHERE id = ${id}
+  `;
 
   const [updatedLead] = await sql<DbLead[]>`
     UPDATE leads
@@ -223,6 +327,10 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
     WHERE id = ${id}
     RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
   `;
+
+  if (previousLead && previousLead.status !== status) {
+    await createEvent(id, "Статус изменен", `${previousLead.status} → ${status}`);
+  }
 
   return updatedLead ? mapDbLead(updatedLead) : undefined;
 }
@@ -232,9 +340,22 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
 
   if (!sql) {
     const leads = globalStore.leadflowLeads ?? demoLeads;
+    const previousLead = leads.find((lead) => lead.id === id);
     globalStore.leadflowLeads = leads.map((lead) => (lead.id === id ? { ...lead, paymentStatus } : lead));
-    return globalStore.leadflowLeads.find((lead) => lead.id === id);
+    const updatedLead = globalStore.leadflowLeads.find((lead) => lead.id === id);
+
+    if (previousLead && previousLead.paymentStatus !== paymentStatus) {
+      await createEvent(id, "Оплата изменена", `${previousLead.paymentStatus} → ${paymentStatus}`);
+    }
+
+    return updatedLead;
   }
+
+  const [previousLead] = await sql<DbLead[]>`
+    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    FROM leads
+    WHERE id = ${id}
+  `;
 
   const [updatedLead] = await sql<DbLead[]>`
     UPDATE leads
@@ -242,6 +363,10 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
     WHERE id = ${id}
     RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
   `;
+
+  if (previousLead && previousLead.payment_status !== paymentStatus) {
+    await createEvent(id, "Оплата изменена", `${previousLead.payment_status} → ${paymentStatus}`);
+  }
 
   return updatedLead ? mapDbLead(updatedLead) : undefined;
 }

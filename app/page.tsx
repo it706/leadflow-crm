@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Lead, type LeadSource, type LeadStatus, type PaymentStatus } from "./data/leads";
+import { type Lead, type LeadEvent, type LeadSource, type LeadStatus, type PaymentStatus } from "./data/leads";
 
 const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Закрыта"];
 const pipelineStatuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
@@ -18,6 +18,7 @@ function getPaymentStatus(lead: Lead) {
 
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [events, setEvents] = useState<LeadEvent[]>([]);
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
   const [activeProject, setActiveProject] = useState<"Все" | LeadSource>("Все");
   const [query, setQuery] = useState("");
@@ -27,8 +28,9 @@ export default function Home() {
   async function loadLeads() {
     try {
       const response = await fetch("/api/leads", { cache: "no-store" });
-      const data = (await response.json()) as { leads: Lead[] };
+      const data = (await response.json()) as { leads: Lead[]; events: LeadEvent[] };
       setLeads(data.leads);
+      setEvents(data.events ?? []);
       setSelectedLeadId((current) => current ?? data.leads[0]?.id ?? null);
     } finally {
       setIsLoading(false);
@@ -57,6 +59,7 @@ export default function Home() {
   const inWorkLeads = leads.filter((lead) => lead.status === "В работе");
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
   const paidRevenue = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
+  const selectedLeadEvents = selectedLead ? events.filter((event) => event.leadId === selectedLead.id) : [];
 
   async function updateStatus(leadId: number, status: LeadStatus) {
     setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead)));
@@ -330,6 +333,28 @@ export default function Home() {
                     {paymentStatus}
                   </button>
                 ))}
+              </div>
+
+              <div className="historyBox">
+                <div className="historyHead">
+                  <span>История</span>
+                  <small>{selectedLeadEvents.length} событий</small>
+                </div>
+                <div className="historyList">
+                  {selectedLeadEvents.length > 0 ? (
+                    selectedLeadEvents.map((event) => (
+                      <article className="historyItem" key={event.id}>
+                        <div>
+                          <strong>{event.title}</strong>
+                          <p>{event.description}</p>
+                        </div>
+                        <time>{event.createdAt}</time>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="emptyHistory">История появится после первого изменения заявки.</p>
+                  )}
+                </div>
               </div>
             </aside>
           ) : null}

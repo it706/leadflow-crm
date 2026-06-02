@@ -660,6 +660,67 @@ dd {
   gap: 8px;
 }
 
+.historyBox {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.historyHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.historyHead span {
+  font-size: 18px;
+  font-weight: 820;
+}
+
+.historyHead small {
+  color: var(--muted);
+  font-weight: 740;
+}
+
+.historyList {
+  display: grid;
+  gap: 10px;
+}
+
+.historyItem {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fafbf7;
+}
+
+.historyItem strong,
+.historyItem p,
+.historyItem time {
+  display: block;
+}
+
+.historyItem strong {
+  margin-bottom: 4px;
+}
+
+.historyItem p,
+.emptyHistory {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.historyItem time {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 740;
+}
+
 @media (max-width: 1380px) {
   .contentGrid {
     grid-template-columns: 1fr;

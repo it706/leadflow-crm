@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addLead, getLeads, updateLeadPaymentStatus, updateLeadStatus, type IncomingLead, type LeadStatus, type PaymentStatus } from "../../data/leads";
+import { addLead, getLeadEvents, getLeads, updateLeadPaymentStatus, updateLeadStatus, type IncomingLead, type LeadStatus, type PaymentStatus } from "../../data/leads";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRM_WEBHOOK_SECRET;
@@ -10,7 +10,9 @@ function isAuthorized(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ leads: await getLeads() });
+  const [leads, events] = await Promise.all([getLeads(), getLeadEvents()]);
+
+  return NextResponse.json({ leads, events });
 }
 
 export async function POST(request: NextRequest) {
