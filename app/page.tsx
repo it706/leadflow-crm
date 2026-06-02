@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { type Lead, type LeadSource, type LeadStatus, type PaymentStatus } from "./data/leads";
 
 const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Закрыта"];
+const pipelineStatuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
 const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 const projects: Array<"Все" | LeadSource> = ["Все", "NordCut", "Valery's Coffee", "Ручная заявка"];
 
@@ -83,6 +84,13 @@ export default function Home() {
     });
 
     await loadLeads();
+  }
+
+  function getNextStatus(status: LeadStatus) {
+    if (status === "Новая") return "В работе";
+    if (status === "В работе") return "Закрыта";
+
+    return null;
   }
 
   return (
@@ -166,8 +174,8 @@ export default function Home() {
           <div className="leadBoard">
             <div className="boardHeader">
               <div>
-                <h2>Входящие заявки</h2>
-                <p>Открывайте заявку, звоните клиенту и переводите сделку по статусам.</p>
+                <h2>Воронка заявок</h2>
+                <p>Смотрите заявки по этапам, открывайте карточку клиента и переводите сделку дальше.</p>
               </div>
               <input onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по клиенту, проекту или услуге" value={query} />
             </div>
@@ -186,6 +194,53 @@ export default function Home() {
                   {project}
                 </button>
               ))}
+            </div>
+
+            <div className="kanbanBoard">
+              {pipelineStatuses.map((status) => {
+                const columnLeads = filteredLeads.filter((lead) => lead.status === status);
+                const columnTotal = columnLeads.reduce((sum, lead) => sum + lead.budget, 0);
+
+                return (
+                  <section className="kanbanColumn" key={status}>
+                    <header>
+                      <div>
+                        <strong>{status}</strong>
+                        <span>{columnLeads.length} заявок</span>
+                      </div>
+                      <b>{formatMoney(columnTotal)} ₽</b>
+                    </header>
+
+                    <div className="kanbanCards">
+                      {columnLeads.map((lead) => {
+                        const nextStatus = getNextStatus(lead.status);
+
+                        return (
+                          <article className={selectedLead?.id === lead.id ? "kanbanCard active" : "kanbanCard"} key={lead.id}>
+                            <button className="kanbanCardMain" onClick={() => setSelectedLeadId(lead.id)} type="button">
+                              <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
+                              <strong>{lead.client}</strong>
+                              <small>{lead.project}</small>
+                              <p>{lead.service}</p>
+                              <b>{formatMoney(lead.budget)} ₽</b>
+                            </button>
+                            {nextStatus ? (
+                              <button className="kanbanMove" onClick={() => updateStatus(lead.id, nextStatus)} type="button">
+                                В {nextStatus.toLowerCase()}
+                              </button>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+
+            <div className="listTitle">
+              <h3>Детальный список</h3>
+              <span>{filteredLeads.length} заявок</span>
             </div>
 
             <div className="leadList">
