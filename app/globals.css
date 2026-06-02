@@ -52,7 +52,7 @@ a {
 
 .appShell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -150,7 +150,8 @@ a {
 }
 
 .workspace {
-  padding: 28px clamp(18px, 4vw, 44px) 48px;
+  min-width: 0;
+  padding: 28px clamp(16px, 3vw, 34px) 48px;
 }
 
 .topPanel {
@@ -282,9 +283,10 @@ dt {
 
 .contentGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
   gap: 14px;
   align-items: start;
+  min-width: 0;
 }
 
 .leadBoard {
@@ -344,17 +346,18 @@ input:focus {
 .leadList {
   display: grid;
   gap: 8px;
-  overflow-x: auto;
+  min-width: 0;
+  overflow-x: visible;
   padding-bottom: 2px;
 }
 
 .leadHeader,
 .leadRow {
   display: grid;
-  grid-template-columns: 120px minmax(160px, 1fr) minmax(260px, 1.5fr) 132px 112px;
-  gap: 14px;
+  grid-template-columns: 100px minmax(120px, 1fr) minmax(180px, 1.25fr) 112px 88px;
+  gap: 10px;
   align-items: center;
-  min-width: 820px;
+  min-width: 0;
 }
 
 .leadHeader {
@@ -378,6 +381,11 @@ input:focus {
     transform 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
+}
+
+.leadRow > strong:last-child {
+  text-align: right;
+  white-space: nowrap;
 }
 
 .leadRow:hover,
@@ -511,6 +519,16 @@ dd {
   gap: 8px;
 }
 
+@media (max-width: 1380px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .leadDetails {
+    position: static;
+  }
+}
+
 @media (max-width: 1180px) {
   .appShell,
   .contentGrid {
@@ -581,9 +599,17 @@ dd {
     padding: 14px;
   }
 
-  .leadHeader,
+  .leadHeader {
+    display: none;
+  }
+
   .leadRow {
-    min-width: 760px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .leadRow > strong:last-child {
+    text-align: left;
   }
 
   dl div {
