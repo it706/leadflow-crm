@@ -6,6 +6,7 @@ import { type Lead, type LeadEvent, type LeadSource, type LeadStatus, type Payme
 const statuses: Array<"Все" | LeadStatus> = ["Все", "Новая", "В работе", "Закрыта"];
 const pipelineStatuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
 const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
+const paymentFilters: Array<"Все" | PaymentStatus> = ["Все", "Не оплачено", "Оплачено"];
 const projects: Array<"Все" | LeadSource> = ["Все", "NordCut", "Valery's Coffee", "Ручная заявка"];
 
 function formatMoney(value: number) {
@@ -46,6 +47,7 @@ export default function Home() {
   const [events, setEvents] = useState<LeadEvent[]>([]);
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
   const [activeProject, setActiveProject] = useState<"Все" | LeadSource>("Все");
+  const [activePayment, setActivePayment] = useState<"Все" | PaymentStatus>("Все");
   const [isManualFormOpen, setIsManualFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
@@ -85,11 +87,12 @@ export default function Home() {
     return leads.filter((lead) => {
       const statusMatches = activeStatus === "Все" || lead.status === activeStatus;
       const projectMatches = activeProject === "Все" || lead.project === activeProject;
+      const paymentMatches = activePayment === "Все" || getPaymentStatus(lead) === activePayment;
       const queryMatches = `${lead.client} ${lead.project} ${lead.service}`.toLowerCase().includes(query.toLowerCase());
 
-      return statusMatches && projectMatches && queryMatches;
+      return statusMatches && projectMatches && paymentMatches && queryMatches;
     });
-  }, [activeProject, activeStatus, leads, query]);
+  }, [activePayment, activeProject, activeStatus, leads, query]);
 
   const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0] ?? leads[0];
   const openLeads = leads.filter((lead) => lead.status !== "Закрыта");
@@ -589,6 +592,14 @@ export default function Home() {
               {projects.map((project) => (
                 <button className={activeProject === project ? "active" : ""} key={project} onClick={() => setActiveProject(project)} type="button">
                   {project}
+                </button>
+              ))}
+            </div>
+
+            <div className="paymentFilterRow">
+              {paymentFilters.map((payment) => (
+                <button className={activePayment === payment ? "active" : ""} key={payment} onClick={() => setActivePayment(payment)} type="button">
+                  {payment}
                 </button>
               ))}
             </div>

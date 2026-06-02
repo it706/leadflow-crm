@@ -203,6 +203,7 @@ h3 {
 .topPanel button,
 .filterRow button,
 .sourceRow button,
+.paymentFilterRow button,
 .statusActions button,
 .paymentActions button,
 .taskBox button {
@@ -681,7 +682,8 @@ input:focus {
 }
 
 .filterRow,
-.sourceRow {
+.sourceRow,
+.paymentFilterRow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -689,10 +691,12 @@ input:focus {
 
 .filterRow button.active,
 .sourceRow button.active,
+.paymentFilterRow button.active,
 .statusActions button.active,
 .paymentActions button.active,
 .filterRow button:hover,
 .sourceRow button:hover,
+.paymentFilterRow button:hover,
 .statusActions button:hover,
 .paymentActions button:hover,
 .taskBox button:hover {
