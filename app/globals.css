@@ -350,6 +350,7 @@ h3 {
   padding: 20px;
 }
 
+.taskOverview,
 .projectAnalytics,
 .clientAnalytics {
   display: grid;
@@ -359,6 +360,91 @@ h3 {
   border-radius: 22px;
   padding: 18px;
   background: var(--panel);
+}
+
+.taskGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.taskCard {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(31, 95, 74, 0.18);
+  border-radius: 18px;
+  padding: 16px;
+  color: var(--ink);
+  background: #f4f9f3;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.taskCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 95, 74, 0.32);
+  box-shadow: 0 14px 34px rgba(20, 22, 21, 0.07);
+}
+
+.taskCard.overdue {
+  border-color: rgba(159, 61, 50, 0.22);
+  background: #fff4f1;
+}
+
+.taskCard span {
+  width: max-content;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--accent-dark);
+  background: #dfeee6;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.taskCard.overdue span {
+  color: #7d2f29;
+  background: #f7dfdc;
+}
+
+.taskCard strong {
+  overflow: hidden;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskCard small,
+.taskCard b {
+  color: var(--muted);
+  font-weight: 740;
+}
+
+.taskCard p {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.emptyTasks {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  background: #fafbf7;
+}
+
+.emptyTasks strong,
+.emptyTasks p {
+  display: block;
+}
+
+.emptyTasks p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .sectionHead {
@@ -1119,6 +1205,7 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .taskGrid,
   .projectGrid,
   .clientGrid {
     grid-template-columns: 1fr;

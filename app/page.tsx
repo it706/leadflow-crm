@@ -32,6 +32,15 @@ function normalizePhone(phone: string) {
   return digits || phone.trim().toLowerCase();
 }
 
+function getTodayDateKey() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [events, setEvents] = useState<LeadEvent[]>([]);
@@ -108,7 +117,8 @@ export default function Home() {
         totalCount: projectLeads.length,
       };
     });
-  const clientStats = Object.values(
+  const todayDateKey = getTodayDateKey();
+  const allClientStats = Object.values(
     leads.reduce<Record<string, {
       activeCount: number;
       lastLead: Lead;
@@ -150,10 +160,15 @@ export default function Home() {
 
       return acc;
     }, {}),
-  )
-    .sort((first, second) => second.totalRevenue - first.totalRevenue)
-    .slice(0, 6);
-  const selectedClientStats = selectedLead ? clientStats.find((client) => normalizePhone(client.phone) === normalizePhone(selectedLead.phone)) : undefined;
+  ).sort((first, second) => second.totalRevenue - first.totalRevenue);
+  const clientStats = allClientStats.slice(0, 6);
+  const selectedClientStats = selectedLead ? allClientStats.find((client) => normalizePhone(client.phone) === normalizePhone(selectedLead.phone)) : undefined;
+  const taskLeads = leads
+    .filter((lead) => lead.status !== "Закрыта" && lead.nextAction && lead.nextActionDate)
+    .filter((lead) => lead.nextActionDate <= todayDateKey)
+    .sort((first, second) => first.nextActionDate.localeCompare(second.nextActionDate));
+  const overdueTasks = taskLeads.filter((lead) => lead.nextActionDate < todayDateKey);
+  const todayTasks = taskLeads.filter((lead) => lead.nextActionDate === todayDateKey);
 
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
@@ -307,6 +322,7 @@ export default function Home() {
         <nav aria-label="Разделы CRM">
           <a className="active" href="#leads">Заявки</a>
           <a href="#analytics">Выручка</a>
+          <a href="#tasks">Задачи</a>
           <a href="#clients">Клиенты</a>
           <a href="#how">Как работает</a>
         </nav>
@@ -437,6 +453,34 @@ export default function Home() {
             <strong>{formatMoney(paidRevenue)} ₽</strong>
             <small>фактически оплаченные заявки</small>
           </article>
+        </section>
+
+        <section className="taskOverview" id="tasks" aria-label="Задачи на сегодня">
+          <div className="sectionHead">
+            <div>
+              <p className="eyebrow">рабочий день</p>
+              <h2>Кому нужно написать или позвонить</h2>
+            </div>
+            <span>{overdueTasks.length} просрочено, {todayTasks.length} запланировано на сегодня</span>
+          </div>
+          <div className="taskGrid">
+            {taskLeads.length > 0 ? (
+              taskLeads.map((lead) => (
+                <button className={lead.nextActionDate < todayDateKey ? "taskCard overdue" : "taskCard"} key={lead.id} onClick={() => setSelectedLeadId(lead.id)} type="button">
+                  <span>{lead.nextActionDate < todayDateKey ? "Просрочено" : "Сегодня"}</span>
+                  <strong>{lead.client}</strong>
+                  <small>{lead.phone}</small>
+                  <p>{lead.nextAction}</p>
+                  <b>{lead.project} · {lead.nextActionDate}</b>
+                </button>
+              ))
+            ) : (
+              <div className="emptyTasks">
+                <strong>На сегодня задач нет</strong>
+                <p>Добавьте следующее действие в карточке заявки, и CRM покажет его здесь в нужный день.</p>
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="projectAnalytics" aria-label="Эффективность проектов">
