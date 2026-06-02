@@ -11,6 +11,10 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value);
 }
 
+function getPaymentStatus(lead: Lead) {
+  return lead.paymentStatus ?? "Не оплачено";
+}
+
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
@@ -51,7 +55,7 @@ export default function Home() {
   const openLeads = leads.filter((lead) => lead.status !== "Закрыта");
   const inWorkLeads = leads.filter((lead) => lead.status === "В работе");
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
-  const paidRevenue = leads.filter((lead) => lead.paymentStatus === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
+  const paidRevenue = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
 
   async function updateStatus(leadId: number, status: LeadStatus) {
     setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead)));
@@ -185,6 +189,13 @@ export default function Home() {
             </div>
 
             <div className="leadList">
+              <div className="leadHeader" aria-hidden="true">
+                <span>Статус</span>
+                <span>Клиент</span>
+                <span>Заявка</span>
+                <span>Оплата</span>
+                <span>Сумма</span>
+              </div>
               {filteredLeads.map((lead) => (
                 <button className={selectedLead?.id === lead.id ? "leadRow active" : "leadRow"} key={lead.id} onClick={() => setSelectedLeadId(lead.id)} type="button">
                   <span className="statusBadge">{lead.status}</span>
@@ -196,7 +207,7 @@ export default function Home() {
                     <strong>{lead.service}</strong>
                     <small>{lead.project} · {lead.createdAt}</small>
                   </div>
-                  <span className={lead.paymentStatus === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{lead.paymentStatus}</span>
+                  <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
                   <strong>{formatMoney(lead.budget)} ₽</strong>
                 </button>
               ))}
@@ -207,7 +218,7 @@ export default function Home() {
             <aside className="leadDetails">
               <div className="detailsHead">
                 <span>#{selectedLead.id}</span>
-                <span className={selectedLead.paymentStatus === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{selectedLead.paymentStatus}</span>
+                <span className={getPaymentStatus(selectedLead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(selectedLead)}</span>
               </div>
               <h2>{selectedLead.client}</h2>
               <p>{selectedLead.project}</p>
@@ -235,7 +246,7 @@ export default function Home() {
                 </div>
                 <div>
                   <dt>Оплата</dt>
-                  <dd>{selectedLead.paymentStatus}</dd>
+                  <dd>{getPaymentStatus(selectedLead)}</dd>
                 </div>
               </dl>
 
@@ -256,7 +267,7 @@ export default function Home() {
               <div className="paymentActions">
                 {paymentStatuses.map((paymentStatus) => (
                   <button
-                    className={selectedLead.paymentStatus === paymentStatus ? "active" : ""}
+                    className={getPaymentStatus(selectedLead) === paymentStatus ? "active" : ""}
                     key={paymentStatus}
                     onClick={() => updatePaymentStatus(selectedLead.id, paymentStatus)}
                     type="button"

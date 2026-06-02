@@ -290,14 +290,15 @@ dt {
 .leadBoard {
   display: grid;
   gap: 14px;
+  min-width: 0;
   padding: 18px;
 }
 
 .boardHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
   gap: 16px;
-  align-items: end;
+  align-items: start;
 }
 
 .boardHeader p {
@@ -343,17 +344,33 @@ input:focus {
 .leadList {
   display: grid;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.leadHeader,
+.leadRow {
+  display: grid;
+  grid-template-columns: 120px minmax(160px, 1fr) minmax(260px, 1.5fr) 132px 112px;
+  gap: 14px;
+  align-items: center;
+  min-width: 820px;
+}
+
+.leadHeader {
+  padding: 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .leadRow {
-  display: grid;
-  grid-template-columns: 84px minmax(150px, 1fr) minmax(220px, 1.2fr) 130px 112px;
-  gap: 12px;
-  align-items: center;
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 13px;
+  padding: 14px;
   color: var(--ink);
   background: #fafbf7;
   text-align: left;
@@ -373,6 +390,7 @@ input:focus {
 .leadRow strong,
 .leadRow small {
   display: block;
+  min-width: 0;
 }
 
 .leadRow strong {
@@ -391,6 +409,7 @@ input:focus {
   padding: 0 10px;
   font-size: 12px;
   font-weight: 820;
+  white-space: nowrap;
 }
 
 .statusBadge {
@@ -528,9 +547,11 @@ dd {
     padding: 18px 14px;
   }
 
-  .topPanel,
-  .boardHeader {
+  .topPanel {
     align-items: stretch;
+  }
+
+  .boardHeader {
     grid-template-columns: 1fr;
   }
 
@@ -560,8 +581,9 @@ dd {
     padding: 14px;
   }
 
+  .leadHeader,
   .leadRow {
-    grid-template-columns: 1fr;
+    min-width: 760px;
   }
 
   dl div {
