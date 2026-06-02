@@ -209,6 +209,13 @@ h3 {
   font-weight: 760;
 }
 
+.topActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .topPanel button {
   min-height: 46px;
   color: var(--panel);
@@ -940,6 +947,10 @@ dd {
   }
 
   .topPanel button {
+    width: 100%;
+  }
+
+  .topActions {
     width: 100%;
   }
 

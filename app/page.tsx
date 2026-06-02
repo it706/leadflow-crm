@@ -20,6 +20,12 @@ function formatPercent(value: number) {
   return `${Math.round(value)}%`;
 }
 
+function escapeCsvCell(value: string | number) {
+  const stringValue = String(value ?? "");
+
+  return `"${stringValue.replace(/"/g, '""')}"`;
+}
+
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [events, setEvents] = useState<LeadEvent[]>([]);
@@ -142,6 +148,33 @@ export default function Home() {
     await loadLeads();
   }
 
+  function exportCsv() {
+    const headers = ["ID", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Создана", "Комментарий"];
+    const rows = leads.map((lead) => [
+      lead.id,
+      lead.client,
+      lead.phone,
+      lead.project,
+      lead.service,
+      lead.status,
+      getPaymentStatus(lead),
+      lead.budget,
+      lead.nextAction ?? "",
+      lead.nextActionDate ?? "",
+      lead.createdAt,
+      lead.comment,
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(";")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `leadflow-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  }
+
   function getNextStatus(status: LeadStatus) {
     if (status === "Новая") return "В работе";
     if (status === "В работе") return "Закрыта";
@@ -180,9 +213,14 @@ export default function Home() {
               Эта панель собирает заявки с барбершопа NordCut и интернет-магазина Valery's Coffee. Telegram получает уведомление, а CRM сохраняет копию для контроля статуса и выручки.
             </p>
           </div>
-          <button onClick={loadLeads} type="button">
-            Обновить
-          </button>
+          <div className="topActions">
+            <button onClick={exportCsv} type="button">
+              Экспорт CSV
+            </button>
+            <button onClick={loadLeads} type="button">
+              Обновить
+            </button>
+          </div>
         </header>
 
         <section className="flowInfo" id="how">
