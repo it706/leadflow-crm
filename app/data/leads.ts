@@ -15,6 +15,8 @@ export type Lead = {
   budget: number;
   createdAt: string;
   comment: string;
+  nextAction: string;
+  nextActionDate: string;
 };
 
 export type LeadEvent = {
@@ -34,6 +36,11 @@ export type IncomingLead = {
   comment?: string;
 };
 
+export type LeadTaskPayload = {
+  nextAction?: string;
+  nextActionDate?: string;
+};
+
 type DbLead = {
   id: number;
   client: string;
@@ -45,6 +52,8 @@ type DbLead = {
   budget: number;
   created_at: Date;
   comment: string;
+  next_action: string | null;
+  next_action_date: string | null;
 };
 
 type DbLeadEvent = {
@@ -67,6 +76,8 @@ const demoLeads: Lead[] = [
     budget: 3999,
     createdAt: "Демо",
     comment: "Пример заявки с сайта барбершопа. Новые реальные заявки будут попадать сюда автоматически.",
+    nextAction: "Позвонить клиенту и подтвердить время",
+    nextActionDate: "",
   },
   {
     id: 2402,
@@ -79,6 +90,8 @@ const demoLeads: Lead[] = [
     budget: 3860,
     createdAt: "Демо",
     comment: "Пример заказа из интернет-магазина кофе. Сумма попадает в выручку в работе.",
+    nextAction: "Уточнить способ получения",
+    nextActionDate: "",
   },
 ];
 
@@ -142,6 +155,8 @@ function mapDbLead(lead: DbLead): Lead {
     budget: Number(lead.budget),
     createdAt: formatDate(lead.created_at),
     comment: lead.comment,
+    nextAction: lead.next_action ?? "",
+    nextActionDate: lead.next_action_date ?? "",
   };
 }
 
@@ -172,6 +187,8 @@ async function ensureTable() {
       budget INTEGER NOT NULL DEFAULT 0,
       priority TEXT NOT NULL DEFAULT 'Средний',
       comment TEXT NOT NULL DEFAULT '',
+      next_action TEXT NOT NULL DEFAULT '',
+      next_action_date TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -189,6 +206,16 @@ async function ensureTable() {
   await sql`
     ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'Не оплачено'
+  `;
+
+  await sql`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS next_action TEXT NOT NULL DEFAULT ''
+  `;
+
+  await sql`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS next_action_date TEXT NOT NULL DEFAULT ''
   `;
 
   await sql`
@@ -246,7 +273,7 @@ export async function getLeads() {
   if (!sql) return globalStore.leadflowLeads ?? demoLeads;
 
   const leads = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     ORDER BY created_at DESC, id DESC
   `;
@@ -280,6 +307,8 @@ export async function addLead(payload: IncomingLead) {
       status: "Новая",
       paymentStatus: "Не оплачено",
       createdAt: formatDate(new Date()),
+      nextAction: "",
+      nextActionDate: "",
     };
 
     globalStore.leadflowLeads = [memoryLead, ...leads];
@@ -290,7 +319,7 @@ export async function addLead(payload: IncomingLead) {
   const [createdLead] = await sql<DbLead[]>`
     INSERT INTO leads (client, project, phone, service, budget, comment)
     VALUES (${lead.client}, ${lead.project}, ${lead.phone}, ${lead.service}, ${lead.budget}, ${lead.comment})
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   const mappedLead = mapDbLead(createdLead);
@@ -316,7 +345,7 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
   }
 
   const [previousLead] = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     WHERE id = ${id}
   `;
@@ -325,7 +354,7 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
     UPDATE leads
     SET status = ${status}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (previousLead && previousLead.status !== status) {
@@ -352,7 +381,7 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
   }
 
   const [previousLead] = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     WHERE id = ${id}
   `;
@@ -361,11 +390,39 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
     UPDATE leads
     SET payment_status = ${paymentStatus}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (previousLead && previousLead.payment_status !== paymentStatus) {
     await createEvent(id, "Оплата изменена", `${previousLead.payment_status} → ${paymentStatus}`);
+  }
+
+  return updatedLead ? mapDbLead(updatedLead) : undefined;
+}
+
+export async function updateLeadTask(id: number, task: LeadTaskPayload) {
+  const nextAction = task.nextAction?.trim() ?? "";
+  const nextActionDate = task.nextActionDate?.trim() ?? "";
+  const sql = await ensureTable();
+
+  if (!sql) {
+    const leads = globalStore.leadflowLeads ?? demoLeads;
+    globalStore.leadflowLeads = leads.map((lead) => (lead.id === id ? { ...lead, nextAction, nextActionDate } : lead));
+    const updatedLead = globalStore.leadflowLeads.find((lead) => lead.id === id);
+    await createEvent(id, "Задача обновлена", nextAction ? `${nextAction}${nextActionDate ? ` · ${nextActionDate}` : ""}` : "Следующее действие очищено");
+
+    return updatedLead;
+  }
+
+  const [updatedLead] = await sql<DbLead[]>`
+    UPDATE leads
+    SET next_action = ${nextAction}, next_action_date = ${nextActionDate}
+    WHERE id = ${id}
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+  `;
+
+  if (updatedLead) {
+    await createEvent(id, "Задача обновлена", nextAction ? `${nextAction}${nextActionDate ? ` · ${nextActionDate}` : ""}` : "Следующее действие очищено");
   }
 
   return updatedLead ? mapDbLead(updatedLead) : undefined;

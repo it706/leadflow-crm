@@ -23,6 +23,8 @@ export default function Home() {
   const [activeProject, setActiveProject] = useState<"Все" | LeadSource>("Все");
   const [query, setQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const [taskText, setTaskText] = useState("");
+  const [taskDate, setTaskDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   async function loadLeads() {
@@ -61,6 +63,11 @@ export default function Home() {
   const paidRevenue = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
   const selectedLeadEvents = selectedLead ? events.filter((event) => event.leadId === selectedLead.id) : [];
 
+  useEffect(() => {
+    setTaskText(selectedLead?.nextAction ?? "");
+    setTaskDate(selectedLead?.nextActionDate ?? "");
+  }, [selectedLead?.id, selectedLead?.nextAction, selectedLead?.nextActionDate]);
+
   async function updateStatus(leadId: number, status: LeadStatus) {
     setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead)));
 
@@ -84,6 +91,28 @@ export default function Home() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ id: leadId, paymentStatus }),
+    });
+
+    await loadLeads();
+  }
+
+  async function saveTask() {
+    if (!selectedLead) return;
+
+    setLeads((current) =>
+      current.map((lead) => (lead.id === selectedLead.id ? { ...lead, nextAction: taskText.trim(), nextActionDate: taskDate } : lead)),
+    );
+
+    await fetch("/api/leads", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: selectedLead.id,
+        nextAction: taskText.trim(),
+        nextActionDate: taskDate,
+      }),
     });
 
     await loadLeads();
@@ -225,6 +254,7 @@ export default function Home() {
                               <strong>{lead.client}</strong>
                               <small>{lead.project}</small>
                               <p>{lead.service}</p>
+                              {lead.nextAction ? <em>{lead.nextActionDate ? `${lead.nextActionDate} · ` : ""}{lead.nextAction}</em> : null}
                               <b>{formatMoney(lead.budget)} ₽</b>
                             </button>
                             {nextStatus ? (
@@ -263,7 +293,7 @@ export default function Home() {
                   </div>
                   <div>
                     <strong>{lead.service}</strong>
-                    <small>{lead.project} · {lead.createdAt}</small>
+                    <small>{lead.nextAction ? `Задача: ${lead.nextAction}` : `${lead.project} · ${lead.createdAt}`}</small>
                   </div>
                   <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
                   <strong>{formatMoney(lead.budget)} ₽</strong>
@@ -333,6 +363,24 @@ export default function Home() {
                     {paymentStatus}
                   </button>
                 ))}
+              </div>
+
+              <div className="taskBox">
+                <div>
+                  <span>Следующее действие</span>
+                  <p>{selectedLead.nextAction ? selectedLead.nextAction : "Добавьте задачу, чтобы не потерять клиента."}</p>
+                </div>
+                <label>
+                  Задача
+                  <input onChange={(event) => setTaskText(event.target.value)} placeholder="Например: перезвонить клиенту" value={taskText} />
+                </label>
+                <label>
+                  Дата
+                  <input onChange={(event) => setTaskDate(event.target.value)} type="date" value={taskDate} />
+                </label>
+                <button onClick={saveTask} type="button">
+                  Сохранить задачу
+                </button>
               </div>
 
               <div className="historyBox">

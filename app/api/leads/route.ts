@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addLead, getLeadEvents, getLeads, updateLeadPaymentStatus, updateLeadStatus, type IncomingLead, type LeadStatus, type PaymentStatus } from "../../data/leads";
+import {
+  addLead,
+  getLeadEvents,
+  getLeads,
+  updateLeadPaymentStatus,
+  updateLeadStatus,
+  updateLeadTask,
+  type IncomingLead,
+  type LeadStatus,
+  type LeadTaskPayload,
+  type PaymentStatus,
+} from "../../data/leads";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRM_WEBHOOK_SECRET;
@@ -32,7 +43,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const payload = (await request.json().catch(() => null)) as { id?: number; status?: LeadStatus; paymentStatus?: PaymentStatus } | null;
+  const payload = (await request.json().catch(() => null)) as ({ id?: number; status?: LeadStatus; paymentStatus?: PaymentStatus } & LeadTaskPayload) | null;
   const statuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
   const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 
@@ -52,6 +63,19 @@ export async function PATCH(request: NextRequest) {
 
   if (payload.paymentStatus && paymentStatuses.includes(payload.paymentStatus)) {
     const lead = await updateLeadPaymentStatus(payload.id, payload.paymentStatus);
+
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, lead });
+  }
+
+  if (typeof payload.nextAction === "string" || typeof payload.nextActionDate === "string") {
+    const lead = await updateLeadTask(payload.id, {
+      nextAction: payload.nextAction,
+      nextActionDate: payload.nextActionDate,
+    });
 
     if (!lead) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });

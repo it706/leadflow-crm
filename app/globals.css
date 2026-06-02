@@ -199,7 +199,8 @@ h3 {
 .filterRow button,
 .sourceRow button,
 .statusActions button,
-.paymentActions button {
+.paymentActions button,
+.taskBox button {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 11px 15px;
@@ -342,7 +343,8 @@ input:focus {
 .filterRow button:hover,
 .sourceRow button:hover,
 .statusActions button:hover,
-.paymentActions button:hover {
+.paymentActions button:hover,
+.taskBox button:hover {
   color: var(--panel);
   border-color: var(--accent);
   background: var(--accent);
@@ -458,6 +460,18 @@ input:focus {
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.kanbanCardMain em {
+  display: block;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--accent-dark);
+  background: #edf5ef;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .kanbanCardMain b {
@@ -658,6 +672,40 @@ dd {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.taskBox {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fafbf7;
+}
+
+.taskBox span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 18px;
+  font-weight: 820;
+}
+
+.taskBox p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.taskBox label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.taskBox button {
+  width: 100%;
 }
 
 .historyBox {
