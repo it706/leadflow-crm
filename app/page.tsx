@@ -26,6 +26,12 @@ function escapeCsvCell(value: string | number) {
   return `"${stringValue.replace(/"/g, '""')}"`;
 }
 
+function normalizePhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  return digits || phone.trim().toLowerCase();
+}
+
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [events, setEvents] = useState<LeadEvent[]>([]);
@@ -92,6 +98,52 @@ export default function Home() {
         totalCount: projectLeads.length,
       };
     });
+  const clientStats = Object.values(
+    leads.reduce<Record<string, {
+      activeCount: number;
+      lastLead: Lead;
+      leadCount: number;
+      paidRevenue: number;
+      phone: string;
+      projects: Set<LeadSource>;
+      totalRevenue: number;
+    }>>((acc, lead) => {
+      const key = normalizePhone(lead.phone);
+      const current = acc[key] ?? {
+        activeCount: 0,
+        lastLead: lead,
+        leadCount: 0,
+        paidRevenue: 0,
+        phone: lead.phone,
+        projects: new Set<LeadSource>(),
+        totalRevenue: 0,
+      };
+
+      current.leadCount += 1;
+      current.totalRevenue += lead.budget;
+      current.projects.add(lead.project);
+
+      if (lead.status !== "Закрыта") {
+        current.activeCount += 1;
+      }
+
+      if (getPaymentStatus(lead) === "Оплачено") {
+        current.paidRevenue += lead.budget;
+      }
+
+      if (lead.id > current.lastLead.id) {
+        current.lastLead = lead;
+        current.phone = lead.phone;
+      }
+
+      acc[key] = current;
+
+      return acc;
+    }, {}),
+  )
+    .sort((first, second) => second.totalRevenue - first.totalRevenue)
+    .slice(0, 6);
+  const selectedClientStats = selectedLead ? clientStats.find((client) => normalizePhone(client.phone) === normalizePhone(selectedLead.phone)) : undefined;
 
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
@@ -195,6 +247,7 @@ export default function Home() {
         <nav aria-label="Разделы CRM">
           <a className="active" href="#leads">Заявки</a>
           <a href="#analytics">Выручка</a>
+          <a href="#clients">Клиенты</a>
           <a href="#how">Как работает</a>
         </nav>
         <div className="sidebarCard">
@@ -301,6 +354,48 @@ export default function Home() {
                   <span style={{ width: `${Math.min(100, stat.conversion)}%` }} />
                 </div>
                 <p>{stat.paidCount} из {stat.totalCount || 0} заявок оплачено</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="clientAnalytics" id="clients" aria-label="База клиентов">
+          <div className="sectionHead">
+            <div>
+              <p className="eyebrow">клиентская база</p>
+              <h2>Повторные клиенты и ценность контактов</h2>
+            </div>
+            <span>CRM группирует заявки по телефону и показывает, какие клиенты уже приносили деньги бизнесу</span>
+          </div>
+          <div className="clientGrid">
+            {clientStats.map((client) => (
+              <article className="clientCard" key={normalizePhone(client.phone)}>
+                <header>
+                  <div>
+                    <strong>{client.lastLead.client}</strong>
+                    <span>{client.phone}</span>
+                  </div>
+                  <b>{client.leadCount}</b>
+                </header>
+                <div className="clientValues">
+                  <div>
+                    <small>Всего заявок</small>
+                    <strong>{client.leadCount}</strong>
+                  </div>
+                  <div>
+                    <small>В работе</small>
+                    <strong>{client.activeCount}</strong>
+                  </div>
+                  <div>
+                    <small>Потенциал</small>
+                    <strong>{formatMoney(client.totalRevenue)} ₽</strong>
+                  </div>
+                  <div>
+                    <small>Оплачено</small>
+                    <strong>{formatMoney(client.paidRevenue)} ₽</strong>
+                  </div>
+                </div>
+                <p>{Array.from(client.projects).join(", ")}</p>
               </article>
             ))}
           </div>
@@ -446,6 +541,21 @@ export default function Home() {
                 <span>Детали заявки</span>
                 <p>{selectedLead.comment}</p>
               </div>
+
+              {selectedClientStats ? (
+                <div className="clientSummary">
+                  <span>История клиента</span>
+                  <div>
+                    <strong>{selectedClientStats.leadCount}</strong>
+                    <small>заявок всего</small>
+                  </div>
+                  <div>
+                    <strong>{formatMoney(selectedClientStats.paidRevenue)} ₽</strong>
+                    <small>оплачено</small>
+                  </div>
+                  <p>{selectedClientStats.activeCount} заявок сейчас в работе</p>
+                </div>
+              ) : null}
 
               <div className="statusActions">
                 {statuses

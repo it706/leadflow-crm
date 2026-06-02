@@ -280,7 +280,8 @@ h3 {
   padding: 20px;
 }
 
-.projectAnalytics {
+.projectAnalytics,
+.clientAnalytics {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
@@ -310,6 +311,12 @@ h3 {
 }
 
 .projectGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.clientGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -381,6 +388,83 @@ h3 {
 
 .projectCard p {
   margin: 0;
+  line-height: 1.45;
+}
+
+.clientCard {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  background: linear-gradient(145deg, #fbfcf8 0%, #f0f4eb 100%);
+}
+
+.clientCard header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.clientCard header strong,
+.clientCard header span {
+  display: block;
+}
+
+.clientCard header strong {
+  overflow: hidden;
+  font-size: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clientCard header span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 740;
+}
+
+.clientCard header b {
+  display: grid;
+  min-width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--panel);
+  background: var(--accent);
+  font-size: 18px;
+}
+
+.clientValues {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.clientValues div {
+  display: grid;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.clientValues small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.clientValues strong {
+  font-size: 20px;
+}
+
+.clientCard p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 740;
   line-height: 1.45;
 }
 
@@ -773,6 +857,52 @@ dd {
   line-height: 1.55;
 }
 
+.clientSummary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  border: 1px solid rgba(31, 95, 74, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+  background: #f4f9f3;
+}
+
+.clientSummary > span,
+.clientSummary p {
+  grid-column: 1 / -1;
+}
+
+.clientSummary > span {
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.clientSummary div {
+  display: grid;
+  gap: 4px;
+}
+
+.clientSummary strong,
+.clientSummary small {
+  display: block;
+}
+
+.clientSummary strong {
+  font-size: 24px;
+}
+
+.clientSummary small,
+.clientSummary p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 740;
+}
+
+.clientSummary p {
+  margin: 0;
+}
+
 .statusActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -915,7 +1045,8 @@ dd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .projectGrid {
+  .projectGrid,
+  .clientGrid {
     grid-template-columns: 1fr;
   }
 
