@@ -55,6 +55,73 @@ a {
   text-decoration: none;
 }
 
+.authScreen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(31, 95, 74, 0.14), transparent 32%),
+    linear-gradient(135deg, #f4f5f0 0%, #e9ece4 100%);
+}
+
+.authCard {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 460px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 26px 70px rgba(20, 22, 21, 0.11);
+}
+
+.authCard > span {
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 820;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.authCard h1 {
+  font-size: clamp(38px, 8vw, 54px);
+}
+
+.authCard p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.authCard form {
+  display: grid;
+  gap: 12px;
+}
+
+.authCard label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.authCard button {
+  min-height: 48px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--panel);
+  background: var(--accent);
+  font-weight: 820;
+}
+
+.authCard small {
+  color: var(--danger);
+  font-weight: 760;
+}
+
 .appShell {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);

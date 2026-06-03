@@ -11,6 +11,7 @@ import {
   type LeadTaskPayload,
   type PaymentStatus,
 } from "../../data/leads";
+import { isAdminRequest } from "../../data/auth";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRM_WEBHOOK_SECRET;
@@ -20,22 +21,18 @@ function isAuthorized(request: NextRequest) {
   return request.headers.get("x-crm-secret") === secret;
 }
 
-function isSameOriginRequest(request: NextRequest) {
-  const origin = request.headers.get("origin");
+export async function GET(request: NextRequest) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
-  if (!origin) return false;
-
-  return new URL(origin).host === request.nextUrl.host;
-}
-
-export async function GET() {
   const [leads, events] = await Promise.all([getLeads(), getLeadEvents()]);
 
   return NextResponse.json({ leads, events });
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request) && !isSameOriginRequest(request)) {
+  if (!isAuthorized(request) && !isAdminRequest(request)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,6 +48,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const payload = (await request.json().catch(() => null)) as ({ id?: number; status?: LeadStatus; paymentStatus?: PaymentStatus } & LeadTaskPayload) | null;
   const statuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
   const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];

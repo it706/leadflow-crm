@@ -43,6 +43,10 @@ function getTodayDateKey() {
 }
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [events, setEvents] = useState<LeadEvent[]>([]);
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
@@ -67,6 +71,12 @@ export default function Home() {
   async function loadLeads() {
     try {
       const response = await fetch("/api/leads", { cache: "no-store" });
+
+      if (response.status === 401) {
+        setIsAuthenticated(false);
+        return;
+      }
+
       const data = (await response.json()) as { leads: Lead[]; events: LeadEvent[] };
       setLeads(data.leads);
       setEvents(data.events ?? []);
@@ -77,11 +87,29 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadLeads();
+    async function checkAuth() {
+      const response = await fetch("/api/auth", { cache: "no-store" });
+      const data = (await response.json()) as { authenticated: boolean };
+
+      setIsAuthenticated(data.authenticated);
+
+      if (data.authenticated) {
+        await loadLeads();
+      } else {
+        setIsLoading(false);
+      }
+    }
+
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const interval = window.setInterval(loadLeads, 5000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -278,6 +306,42 @@ export default function Home() {
     }
   }
 
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError("");
+
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        setLoginError(data?.message ?? "Не удалось войти.");
+        return;
+      }
+
+      setLoginPassword("");
+      setIsAuthenticated(true);
+      await loadLeads();
+    } finally {
+      setIsLoggingIn(false);
+    }
+  }
+
+  async function logout() {
+    await fetch("/api/auth", { method: "DELETE" });
+    setIsAuthenticated(false);
+    setLeads([]);
+    setEvents([]);
+    setSelectedLeadId(null);
+  }
+
   function exportCsv() {
     const headers = ["ID", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Создана", "Комментарий"];
     const rows = leads.map((lead) => [
@@ -310,6 +374,46 @@ export default function Home() {
     if (status === "В работе") return "Закрыта";
 
     return null;
+  }
+
+  if (isAuthenticated === null) {
+    return (
+      <main className="authScreen">
+        <section className="authCard">
+          <span>LeadFlow CRM</span>
+          <h1>Проверяем доступ</h1>
+          <p>CRM готовит защищенную панель заявок.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="authScreen">
+        <section className="authCard">
+          <span>LeadFlow CRM</span>
+          <h1>Вход в CRM</h1>
+          <p>Введите пароль администратора, чтобы открыть заявки, клиентов и выручку.</p>
+          <form onSubmit={login}>
+            <label>
+              Пароль
+              <input
+                autoComplete="current-password"
+                onChange={(event) => setLoginPassword(event.target.value)}
+                placeholder="CRM_ADMIN_PASSWORD"
+                type="password"
+                value={loginPassword}
+              />
+            </label>
+            <button disabled={isLoggingIn} type="submit">
+              {isLoggingIn ? "Проверяем" : "Войти"}
+            </button>
+            {loginError ? <small>{loginError}</small> : null}
+          </form>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -354,6 +458,9 @@ export default function Home() {
             </button>
             <button onClick={loadLeads} type="button">
               Обновить
+            </button>
+            <button onClick={logout} type="button">
+              Выйти
             </button>
           </div>
         </header>
