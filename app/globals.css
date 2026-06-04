@@ -1362,6 +1362,36 @@ dd {
   font-weight: 740;
 }
 
+.dangerZone {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(159, 61, 50, 0.2);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff4f1;
+}
+
+.dangerZone span {
+  color: #7d2f29;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.dangerZone p {
+  margin: 0;
+  color: #7d2f29;
+  line-height: 1.45;
+}
+
+.dangerZone button {
+  min-height: 42px;
+  border: 1px solid rgba(159, 61, 50, 0.35);
+  border-radius: 999px;
+  color: #fff;
+  background: var(--danger);
+  font-weight: 820;
+}
+
 @media (max-width: 1380px) {
   .contentGrid {
     grid-template-columns: 1fr;

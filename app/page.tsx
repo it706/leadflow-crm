@@ -70,6 +70,8 @@ export default function Home() {
   const [noteText, setNoteText] = useState("");
   const [noteError, setNoteError] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [deleteConfirmLeadId, setDeleteConfirmLeadId] = useState<number | null>(null);
+  const [isDeletingLead, setIsDeletingLead] = useState(false);
   const [copiedPhoneLeadId, setCopiedPhoneLeadId] = useState<number | null>(null);
   const [isEditingLead, setIsEditingLead] = useState(false);
   const [editLead, setEditLead] = useState({
@@ -230,6 +232,7 @@ export default function Home() {
     setTaskDate(selectedLead?.nextActionDate ?? "");
     setNoteText("");
     setNoteError("");
+    setDeleteConfirmLeadId(null);
     setIsEditingLead(false);
     setEditError("");
     setEditLead({
@@ -326,6 +329,33 @@ export default function Home() {
       await loadLeads();
     } finally {
       setIsSavingNote(false);
+    }
+  }
+
+  async function removeSelectedLead() {
+    if (!selectedLead) return;
+
+    if (deleteConfirmLeadId !== selectedLead.id) {
+      setDeleteConfirmLeadId(selectedLead.id);
+      return;
+    }
+
+    setIsDeletingLead(true);
+
+    try {
+      const response = await fetch(`/api/leads?id=${selectedLead.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) return;
+
+      setLeads((current) => current.filter((lead) => lead.id !== selectedLead.id));
+      setEvents((current) => current.filter((event) => event.leadId !== selectedLead.id));
+      setSelectedLeadId(null);
+      setDeleteConfirmLeadId(null);
+      await loadLeads();
+    } finally {
+      setIsDeletingLead(false);
     }
   }
 
@@ -1095,6 +1125,14 @@ export default function Home() {
                     <p className="emptyHistory">История появится после первого изменения заявки.</p>
                   )}
                 </div>
+              </div>
+
+              <div className="dangerZone">
+                <span>Опасная зона</span>
+                <p>{deleteConfirmLeadId === selectedLead.id ? "Нажмите еще раз, чтобы окончательно удалить заявку." : "Удаляйте только тестовые, ошибочные или дублирующиеся заявки."}</p>
+                <button disabled={isDeletingLead} onClick={removeSelectedLead} type="button">
+                  {isDeletingLead ? "Удаляем" : deleteConfirmLeadId === selectedLead.id ? "Подтвердить удаление" : "Удалить заявку"}
+                </button>
               </div>
             </aside>
           ) : null}

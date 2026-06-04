@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   addLead,
   addLeadNote,
+  deleteLead,
   getLeadEvents,
   getLeads,
   updateLeadDetails,
@@ -118,4 +119,24 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({ message: "Invalid status data" }, { status: 400 });
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const id = Number(request.nextUrl.searchParams.get("id"));
+
+  if (!id) {
+    return NextResponse.json({ message: "Invalid lead id" }, { status: 400 });
+  }
+
+  const lead = await deleteLead(id);
+
+  if (!lead) {
+    return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, lead });
 }

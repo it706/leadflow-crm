@@ -485,3 +485,27 @@ export async function addLeadNote(id: number, payload: LeadNotePayload) {
 
   return lead;
 }
+
+export async function deleteLead(id: number) {
+  const sql = await ensureTable();
+
+  if (!sql) {
+    const leads = globalStore.leadflowLeads ?? demoLeads;
+    const lead = leads.find((item) => item.id === id);
+
+    if (!lead) return undefined;
+
+    globalStore.leadflowLeads = leads.filter((item) => item.id !== id);
+    globalStore.leadflowEvents = (globalStore.leadflowEvents ?? []).filter((event) => event.leadId !== id);
+
+    return lead;
+  }
+
+  const [deletedLead] = await sql<DbLead[]>`
+    DELETE FROM leads
+    WHERE id = ${id}
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+  `;
+
+  return deletedLead ? mapDbLead(deletedLead) : undefined;
+}
