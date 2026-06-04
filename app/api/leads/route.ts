@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   addLead,
   addLeadNote,
-  deleteLead,
+  archiveLead,
   getLeadEvents,
   getLeads,
   updateLeadDetails,
@@ -132,7 +132,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: "Invalid lead id" }, { status: 400 });
   }
 
-  const lead = await deleteLead(id);
+  const lead = await archiveLead(id);
 
   if (!lead) {
     return NextResponse.json({ message: "Lead not found" }, { status: 404 });

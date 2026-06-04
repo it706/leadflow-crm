@@ -6,6 +6,7 @@ export type LeadSource = "NordCut" | "Valery's Coffee" | "Ручная заяв�
 
 export type Lead = {
   id: number;
+  archived: boolean;
   client: string;
   project: LeadSource;
   phone: string;
@@ -14,6 +15,7 @@ export type Lead = {
   paymentStatus: PaymentStatus;
   budget: number;
   createdAt: string;
+  createdAtDate: string;
   comment: string;
   nextAction: string;
   nextActionDate: string;
@@ -55,6 +57,7 @@ export type LeadNotePayload = {
 
 type DbLead = {
   id: number;
+  archived: boolean;
   client: string;
   project: LeadSource;
   phone: string;
@@ -79,6 +82,7 @@ type DbLeadEvent = {
 const demoLeads: Lead[] = [
   {
     id: 2401,
+    archived: false,
     client: "Тестовая заявка NordCut",
     project: "NordCut",
     phone: "+7 999 000-00-00",
@@ -87,12 +91,14 @@ const demoLeads: Lead[] = [
     paymentStatus: "Не оплачено",
     budget: 3999,
     createdAt: "Демо",
+    createdAtDate: "",
     comment: "Пример заявки с сайта барбершопа. Новые реальные заявки будут попадать сюда автоматически.",
     nextAction: "Позвонить клиенту и подтвердить время",
     nextActionDate: "",
   },
   {
     id: 2402,
+    archived: false,
     client: "Тестовый заказ Valery's Coffee",
     project: "Valery's Coffee",
     phone: "+7 999 111-22-33",
@@ -101,6 +107,7 @@ const demoLeads: Lead[] = [
     paymentStatus: "Не оплачено",
     budget: 3860,
     createdAt: "Демо",
+    createdAtDate: "",
     comment: "Пример заказа из интернет-магазина кофе. Сумма попадает в выручку в работе.",
     nextAction: "Уточнить способ получения",
     nextActionDate: "",
@@ -155,9 +162,25 @@ function formatDate(value: Date) {
   }).format(value);
 }
 
+function formatDateKey(value: Date) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Europe/Moscow",
+    year: "numeric",
+  });
+  const parts = formatter.formatToParts(value);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  const day = parts.find((part) => part.type === "day")?.value ?? "00";
+
+  return `${year}-${month}-${day}`;
+}
+
 function mapDbLead(lead: DbLead): Lead {
   return {
     id: lead.id,
+    archived: lead.archived,
     client: lead.client,
     project: lead.project,
     phone: lead.phone,
@@ -166,6 +189,7 @@ function mapDbLead(lead: DbLead): Lead {
     paymentStatus: lead.payment_status,
     budget: Number(lead.budget),
     createdAt: formatDate(lead.created_at),
+    createdAtDate: formatDateKey(lead.created_at),
     comment: lead.comment,
     nextAction: lead.next_action ?? "",
     nextActionDate: lead.next_action_date ?? "",
@@ -190,6 +214,7 @@ async function ensureTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS leads (
       id SERIAL PRIMARY KEY,
+      archived BOOLEAN NOT NULL DEFAULT FALSE,
       client TEXT NOT NULL,
       project TEXT NOT NULL,
       phone TEXT NOT NULL,
@@ -218,6 +243,11 @@ async function ensureTable() {
   await sql`
     ALTER TABLE leads
     ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'Не оплачено'
+  `;
+
+  await sql`
+    ALTER TABLE leads
+    ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
   `;
 
   await sql`
@@ -285,7 +315,7 @@ export async function getLeads() {
   if (!sql) return globalStore.leadflowLeads ?? demoLeads;
 
   const leads = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    SELECT id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     ORDER BY created_at DESC, id DESC
   `;
@@ -315,10 +345,12 @@ export async function addLead(payload: IncomingLead) {
     const leads = globalStore.leadflowLeads ?? demoLeads;
     const memoryLead: Lead = {
       id: Math.max(2400, ...leads.map((item) => item.id)) + 1,
+      archived: false,
       ...lead,
       status: "Новая",
       paymentStatus: "Не оплачено",
       createdAt: formatDate(new Date()),
+      createdAtDate: formatDateKey(new Date()),
       nextAction: "",
       nextActionDate: "",
     };
@@ -331,7 +363,7 @@ export async function addLead(payload: IncomingLead) {
   const [createdLead] = await sql<DbLead[]>`
     INSERT INTO leads (client, project, phone, service, budget, comment)
     VALUES (${lead.client}, ${lead.project}, ${lead.phone}, ${lead.service}, ${lead.budget}, ${lead.comment})
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   const mappedLead = mapDbLead(createdLead);
@@ -357,7 +389,7 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
   }
 
   const [previousLead] = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    SELECT id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     WHERE id = ${id}
   `;
@@ -366,7 +398,7 @@ export async function updateLeadStatus(id: number, status: LeadStatus) {
     UPDATE leads
     SET status = ${status}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (previousLead && previousLead.status !== status) {
@@ -393,7 +425,7 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
   }
 
   const [previousLead] = await sql<DbLead[]>`
-    SELECT id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    SELECT id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
     FROM leads
     WHERE id = ${id}
   `;
@@ -402,7 +434,7 @@ export async function updateLeadPaymentStatus(id: number, paymentStatus: Payment
     UPDATE leads
     SET payment_status = ${paymentStatus}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (previousLead && previousLead.payment_status !== paymentStatus) {
@@ -430,7 +462,7 @@ export async function updateLeadTask(id: number, task: LeadTaskPayload) {
     UPDATE leads
     SET next_action = ${nextAction}, next_action_date = ${nextActionDate}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (updatedLead) {
@@ -464,7 +496,7 @@ export async function updateLeadDetails(id: number, details: LeadDetailsPayload)
     UPDATE leads
     SET client = ${client}, phone = ${phone}, service = ${service}, budget = ${budget}, comment = ${comment}
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
   if (updatedLead) {
@@ -486,7 +518,7 @@ export async function addLeadNote(id: number, payload: LeadNotePayload) {
   return lead;
 }
 
-export async function deleteLead(id: number) {
+export async function archiveLead(id: number) {
   const sql = await ensureTable();
 
   if (!sql) {
@@ -495,17 +527,22 @@ export async function deleteLead(id: number) {
 
     if (!lead) return undefined;
 
-    globalStore.leadflowLeads = leads.filter((item) => item.id !== id);
-    globalStore.leadflowEvents = (globalStore.leadflowEvents ?? []).filter((event) => event.leadId !== id);
+    globalStore.leadflowLeads = leads.map((item) => (item.id === id ? { ...item, archived: true } : item));
+    await createEvent(id, "Заявка отправлена в архив", "Заявка скрыта из активной воронки, но сохранена в базе CRM.");
 
-    return lead;
+    return { ...lead, archived: true };
   }
 
-  const [deletedLead] = await sql<DbLead[]>`
-    DELETE FROM leads
+  const [archivedLead] = await sql<DbLead[]>`
+    UPDATE leads
+    SET archived = TRUE
     WHERE id = ${id}
-    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+    RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
   `;
 
-  return deletedLead ? mapDbLead(deletedLead) : undefined;
+  if (archivedLead) {
+    await createEvent(id, "Заявка отправлена в архив", "Заявка скрыта из активной воронки, но сохранена в базе CRM.");
+  }
+
+  return archivedLead ? mapDbLead(archivedLead) : undefined;
 }

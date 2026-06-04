@@ -272,6 +272,8 @@ h3 {
 .filterRow button,
 .sourceRow button,
 .paymentFilterRow button,
+.dateFilterRow button,
+.archiveFilterRow button,
 .statusActions button,
 .paymentActions button,
 .taskBox button {
@@ -820,7 +822,9 @@ textarea:focus {
 
 .filterRow,
 .sourceRow,
-.paymentFilterRow {
+.paymentFilterRow,
+.dateFilterRow,
+.archiveFilterRow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -829,11 +833,15 @@ textarea:focus {
 .filterRow button.active,
 .sourceRow button.active,
 .paymentFilterRow button.active,
+.dateFilterRow button.active,
+.archiveFilterRow button.active,
 .statusActions button.active,
 .paymentActions button.active,
 .filterRow button:hover,
 .sourceRow button:hover,
 .paymentFilterRow button:hover,
+.dateFilterRow button:hover,
+.archiveFilterRow button:hover,
 .statusActions button:hover,
 .paymentActions button:hover,
 .taskBox button:hover {
@@ -1080,6 +1088,20 @@ textarea:focus {
 .paymentBadge.paid {
   color: var(--accent-dark);
   background: #dfeee6;
+}
+
+.archiveBadge {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #7b5628;
+  background: #f7e7c9;
+  font-size: 12px;
+  font-weight: 820;
+  white-space: nowrap;
 }
 
 .leadDetails {

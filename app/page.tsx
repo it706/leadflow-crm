@@ -8,6 +8,8 @@ const pipelineStatuses: LeadStatus[] = ["Новая", "В работе", "Зак
 const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 const paymentFilters: Array<"Все" | PaymentStatus> = ["Все", "Не оплачено", "Оплачено"];
 const projects: Array<"Все" | LeadSource> = ["Все", "NordCut", "Valery's Coffee", "Ручная заявка"];
+const archiveFilters = ["Активные", "Архив", "Все"] as const;
+const dateFilters = ["Все время", "Сегодня", "7 дней", "30 дней"] as const;
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value);
@@ -52,6 +54,18 @@ function getTodayDateKey() {
   return `${year}-${month}-${day}`;
 }
 
+function getPastDateKey(daysAgo: number) {
+  const date = new Date();
+
+  date.setDate(date.getDate() - daysAgo);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [loginPassword, setLoginPassword] = useState("");
@@ -62,6 +76,8 @@ export default function Home() {
   const [activeStatus, setActiveStatus] = useState<"Все" | LeadStatus>("Все");
   const [activeProject, setActiveProject] = useState<"Все" | LeadSource>("Все");
   const [activePayment, setActivePayment] = useState<"Все" | PaymentStatus>("Все");
+  const [activeArchive, setActiveArchive] = useState<(typeof archiveFilters)[number]>("Активные");
+  const [activeDateFilter, setActiveDateFilter] = useState<(typeof dateFilters)[number]>("Все время");
   const [isManualFormOpen, setIsManualFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
@@ -106,7 +122,11 @@ export default function Home() {
       const data = (await response.json()) as { leads: Lead[]; events: LeadEvent[] };
       setLeads(data.leads);
       setEvents(data.events ?? []);
-      setSelectedLeadId((current) => current ?? data.leads[0]?.id ?? null);
+      setSelectedLeadId((current) => {
+        if (current && data.leads.some((lead) => lead.id === current)) return current;
+
+        return data.leads.find((lead) => !lead.archived)?.id ?? data.leads[0]?.id ?? null;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -137,8 +157,25 @@ export default function Home() {
     return () => window.clearInterval(interval);
   }, [isAuthenticated]);
 
-  const filteredLeads = useMemo(() => {
+  const todayDateKey = getTodayDateKey();
+  const scopedLeads = useMemo(() => {
     return leads.filter((lead) => {
+      const archiveMatches =
+        activeArchive === "Все" ||
+        (activeArchive === "Архив" && lead.archived) ||
+        (activeArchive === "Активные" && !lead.archived);
+      const dateMatches =
+        activeDateFilter === "Все время" ||
+        (activeDateFilter === "Сегодня" && lead.createdAtDate === todayDateKey) ||
+        (activeDateFilter === "7 дней" && Boolean(lead.createdAtDate) && lead.createdAtDate >= getPastDateKey(6)) ||
+        (activeDateFilter === "30 дней" && Boolean(lead.createdAtDate) && lead.createdAtDate >= getPastDateKey(29));
+
+      return archiveMatches && dateMatches;
+    });
+  }, [activeArchive, activeDateFilter, leads, todayDateKey]);
+
+  const filteredLeads = useMemo(() => {
+    return scopedLeads.filter((lead) => {
       const statusMatches = activeStatus === "Все" || lead.status === activeStatus;
       const projectMatches = activeProject === "Все" || lead.project === activeProject;
       const paymentMatches = activePayment === "Все" || getPaymentStatus(lead) === activePayment;
@@ -146,25 +183,25 @@ export default function Home() {
 
       return statusMatches && projectMatches && paymentMatches && queryMatches;
     });
-  }, [activePayment, activeProject, activeStatus, leads, query]);
+  }, [activePayment, activeProject, activeStatus, query, scopedLeads]);
 
   const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0] ?? leads[0];
-  const openLeads = leads.filter((lead) => lead.status !== "Закрыта");
-  const inWorkLeads = leads.filter((lead) => lead.status === "В работе");
+  const openLeads = scopedLeads.filter((lead) => lead.status !== "Закрыта" && !lead.archived);
+  const inWorkLeads = scopedLeads.filter((lead) => lead.status === "В работе" && !lead.archived);
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
-  const paidLeads = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено");
-  const unpaidLeads = leads.filter((lead) => getPaymentStatus(lead) === "Не оплачено" && lead.status !== "Закрыта");
+  const paidLeads = scopedLeads.filter((lead) => getPaymentStatus(lead) === "Оплачено");
+  const unpaidLeads = scopedLeads.filter((lead) => getPaymentStatus(lead) === "Не оплачено" && lead.status !== "Закрыта" && !lead.archived);
   const paidRevenue = paidLeads.reduce((sum, lead) => sum + lead.budget, 0);
   const unpaidRevenue = unpaidLeads.reduce((sum, lead) => sum + lead.budget, 0);
-  const totalRevenue = leads.reduce((sum, lead) => sum + lead.budget, 0);
-  const averageCheck = leads.length ? Math.round(totalRevenue / leads.length) : 0;
-  const paymentConversion = leads.length ? (paidLeads.length / leads.length) * 100 : 0;
+  const totalRevenue = scopedLeads.reduce((sum, lead) => sum + lead.budget, 0);
+  const averageCheck = scopedLeads.length ? Math.round(totalRevenue / scopedLeads.length) : 0;
+  const paymentConversion = scopedLeads.length ? (paidLeads.length / scopedLeads.length) * 100 : 0;
   const selectedLeadEvents = selectedLead ? events.filter((event) => event.leadId === selectedLead.id) : [];
   const projectStats = projects
     .filter((project): project is LeadSource => project !== "Все")
     .map((project) => {
-      const projectLeads = leads.filter((lead) => lead.project === project);
-      const activeLeads = projectLeads.filter((lead) => lead.status !== "Закрыта");
+      const projectLeads = scopedLeads.filter((lead) => lead.project === project);
+      const activeLeads = projectLeads.filter((lead) => lead.status !== "Закрыта" && !lead.archived);
       const paidLeads = projectLeads.filter((lead) => getPaymentStatus(lead) === "Оплачено");
       const activeRevenue = activeLeads.reduce((sum, lead) => sum + lead.budget, 0);
       const paidProjectRevenue = paidLeads.reduce((sum, lead) => sum + lead.budget, 0);
@@ -180,9 +217,8 @@ export default function Home() {
         totalCount: projectLeads.length,
       };
     });
-  const todayDateKey = getTodayDateKey();
   const allClientStats = Object.values(
-    leads.reduce<Record<string, {
+    scopedLeads.reduce<Record<string, {
       activeCount: number;
       lastLead: Lead;
       leadCount: number;
@@ -342,7 +378,7 @@ export default function Home() {
     }
   }
 
-  async function removeSelectedLead() {
+  async function archiveSelectedLead() {
     if (!selectedLead) return;
 
     if (deleteConfirmLeadId !== selectedLead.id) {
@@ -356,11 +392,11 @@ export default function Home() {
       const response = await fetch(`/api/leads?id=${selectedLead.id}`, {
         method: "DELETE",
       });
+      const data = (await response.json().catch(() => null)) as { lead?: Lead } | null;
 
-      if (!response.ok) return;
+      if (!response.ok || !data?.lead) return;
 
-      setLeads((current) => current.filter((lead) => lead.id !== selectedLead.id));
-      setEvents((current) => current.filter((event) => event.leadId !== selectedLead.id));
+      setLeads((current) => current.map((lead) => (lead.id === selectedLead.id ? data.lead! : lead)));
       setSelectedLeadId(null);
       setDeleteConfirmLeadId(null);
       await loadLeads();
@@ -515,9 +551,10 @@ export default function Home() {
   }
 
   function exportCsv() {
-    const headers = ["ID", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Создана", "Комментарий"];
+    const headers = ["ID", "Архив", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Дата", "Создана", "Комментарий"];
     const rows = leads.map((lead) => [
       lead.id,
+      lead.archived ? "Да" : "Нет",
       lead.client,
       lead.phone,
       lead.project,
@@ -527,6 +564,7 @@ export default function Home() {
       lead.budget,
       lead.nextAction ?? "",
       lead.nextActionDate ?? "",
+      lead.createdAtDate ?? "",
       lead.createdAt,
       lead.comment,
     ]);
@@ -720,8 +758,8 @@ export default function Home() {
         <section className="metrics" id="analytics">
           <article>
             <span>Всего заявок</span>
-            <strong>{leads.length}</strong>
-            <small>{isLoading ? "загружаем" : "из подключенных проектов"}</small>
+            <strong>{scopedLeads.length}</strong>
+            <small>{isLoading ? "загружаем" : "с учетом выбранных фильтров"}</small>
           </article>
           <article>
             <span>Открытые заявки</span>
@@ -934,6 +972,22 @@ export default function Home() {
               ))}
             </div>
 
+            <div className="dateFilterRow">
+              {dateFilters.map((filter) => (
+                <button className={activeDateFilter === filter ? "active" : ""} key={filter} onClick={() => setActiveDateFilter(filter)} type="button">
+                  {filter}
+                </button>
+              ))}
+            </div>
+
+            <div className="archiveFilterRow">
+              {archiveFilters.map((filter) => (
+                <button className={activeArchive === filter ? "active" : ""} key={filter} onClick={() => setActiveArchive(filter)} type="button">
+                  {filter}
+                </button>
+              ))}
+            </div>
+
             <div className="kanbanBoard">
               {pipelineStatuses.map((status) => {
                 const columnLeads = filteredLeads.filter((lead) => lead.status === status);
@@ -958,7 +1012,7 @@ export default function Home() {
                             <button className="kanbanCardMain" onClick={() => setSelectedLeadId(lead.id)} type="button">
                               <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
                               <strong>{lead.client}</strong>
-                              <small>{lead.project}</small>
+                              <small>{lead.archived ? `Архив · ${lead.project}` : lead.project}</small>
                               <p>{lead.service}</p>
                               {lead.nextAction ? <em>{lead.nextActionDate ? `${lead.nextActionDate} · ` : ""}{lead.nextAction}</em> : null}
                               <b>{formatMoney(lead.budget)} ₽</b>
@@ -998,8 +1052,8 @@ export default function Home() {
                     <small>{lead.phone}</small>
                   </div>
                   <div>
-                    <strong>{lead.service}</strong>
-                    <small>{lead.nextAction ? `Задача: ${lead.nextAction}` : `${lead.project} · ${lead.createdAt}`}</small>
+                   <strong>{lead.service}</strong>
+                    <small>{lead.archived ? `Архив · ${lead.project}` : lead.nextAction ? `Задача: ${lead.nextAction}` : `${lead.project} · ${lead.createdAt}`}</small>
                   </div>
                   <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
                   <strong>{formatMoney(lead.budget)} ₽</strong>
@@ -1012,7 +1066,9 @@ export default function Home() {
             <aside className="leadDetails">
               <div className="detailsHead">
                 <span>#{selectedLead.id}</span>
-                <span className={getPaymentStatus(selectedLead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(selectedLead)}</span>
+                <span className={selectedLead.archived ? "archiveBadge" : getPaymentStatus(selectedLead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>
+                  {selectedLead.archived ? "Архив" : getPaymentStatus(selectedLead)}
+                </span>
               </div>
               <h2>{selectedLead.client}</h2>
               <p>{selectedLead.project}</p>
@@ -1186,10 +1242,10 @@ export default function Home() {
               </div>
 
               <div className="dangerZone">
-                <span>Опасная зона</span>
-                <p>{deleteConfirmLeadId === selectedLead.id ? "Нажмите еще раз, чтобы окончательно удалить заявку." : "Удаляйте только тестовые, ошибочные или дублирующиеся заявки."}</p>
-                <button disabled={isDeletingLead} onClick={removeSelectedLead} type="button">
-                  {isDeletingLead ? "Удаляем" : deleteConfirmLeadId === selectedLead.id ? "Подтвердить удаление" : "Удалить заявку"}
+                <span>Архив</span>
+                <p>{deleteConfirmLeadId === selectedLead.id ? "Нажмите еще раз, чтобы отправить заявку в архив." : "Архивируйте тестовые, ошибочные или дублирующиеся заявки."}</p>
+                <button disabled={isDeletingLead || selectedLead.archived} onClick={archiveSelectedLead} type="button">
+                  {selectedLead.archived ? "Уже в архиве" : isDeletingLead ? "Архивируем" : deleteConfirmLeadId === selectedLead.id ? "Подтвердить архив" : "В архив"}
                 </button>
               </div>
             </aside>
