@@ -232,6 +232,10 @@ export default function Home() {
     .sort((first, second) => first.nextActionDate.localeCompare(second.nextActionDate));
   const overdueTasks = taskLeads.filter((lead) => lead.nextActionDate < todayDateKey);
   const todayTasks = taskLeads.filter((lead) => lead.nextActionDate === todayDateKey);
+  const leadsWithoutNextAction = openLeads
+    .filter((lead) => !lead.nextAction)
+    .sort((first, second) => second.budget - first.budget)
+    .slice(0, 6);
 
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
@@ -779,6 +783,34 @@ export default function Home() {
               <div className="emptyTasks">
                 <strong>На сегодня задач нет</strong>
                 <p>Добавьте следующее действие в карточке заявки, и CRM покажет его здесь в нужный день.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="attentionOverview" aria-label="Заявки без следующего действия">
+          <div className="sectionHead">
+            <div>
+              <p className="eyebrow">контроль потерь</p>
+              <h2>Заявки без следующего шага</h2>
+            </div>
+            <span>{leadsWithoutNextAction.length} открытых заявок без назначенного действия</span>
+          </div>
+          <div className="attentionGrid">
+            {leadsWithoutNextAction.length > 0 ? (
+              leadsWithoutNextAction.map((lead) => (
+                <button className="attentionCard" key={lead.id} onClick={() => setSelectedLeadId(lead.id)} type="button">
+                  <span>{lead.status}</span>
+                  <strong>{lead.client}</strong>
+                  <small>{lead.phone}</small>
+                  <p>{lead.service}</p>
+                  <b>{formatMoney(lead.budget)} ₽ · {lead.project}</b>
+                </button>
+              ))
+            ) : (
+              <div className="emptyTasks">
+                <strong>Все открытые заявки под контролем</strong>
+                <p>У каждой активной заявки уже есть следующее действие.</p>
               </div>
             )}
           </div>
