@@ -57,6 +57,10 @@ export type LeadNotePayload = {
   note?: string;
 };
 
+export type LeadArchivePayload = {
+  archived?: boolean;
+};
+
 type DbLead = {
   id: number;
   archived: boolean;
@@ -532,8 +536,12 @@ export async function addLeadNote(id: number, payload: LeadNotePayload) {
   return lead;
 }
 
-export async function archiveLead(id: number) {
+export async function updateLeadArchive(id: number, archived: boolean) {
   const sql = await ensureTable();
+  const title = archived ? "Заявка отправлена в архив" : "Заявка возвращена из архива";
+  const description = archived
+    ? "Заявка скрыта из активной воронки, но сохранена в базе CRM."
+    : "Заявка снова отображается в активной воронке CRM.";
 
   if (!sql) {
     const leads = globalStore.leadflowLeads ?? demoLeads;
@@ -541,22 +549,26 @@ export async function archiveLead(id: number) {
 
     if (!lead) return undefined;
 
-    globalStore.leadflowLeads = leads.map((item) => (item.id === id ? { ...item, archived: true } : item));
-    await createEvent(id, "Заявка отправлена в архив", "Заявка скрыта из активной воронки, но сохранена в базе CRM.");
+    globalStore.leadflowLeads = leads.map((item) => (item.id === id ? { ...item, archived } : item));
+    await createEvent(id, title, description);
 
-    return { ...lead, archived: true };
+    return { ...lead, archived };
   }
 
-  const [archivedLead] = await sql<DbLead[]>`
+  const [updatedLead] = await sql<DbLead[]>`
     UPDATE leads
-    SET archived = TRUE
+    SET archived = ${archived}
     WHERE id = ${id}
     RETURNING id, archived, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date, next_action_time
   `;
 
-  if (archivedLead) {
-    await createEvent(id, "Заявка отправлена в архив", "Заявка скрыта из активной воронки, но сохранена в базе CRM.");
+  if (updatedLead) {
+    await createEvent(id, title, description);
   }
 
-  return archivedLead ? mapDbLead(archivedLead) : undefined;
+  return updatedLead ? mapDbLead(updatedLead) : undefined;
+}
+
+export async function archiveLead(id: number) {
+  return updateLeadArchive(id, true);
 }

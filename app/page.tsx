@@ -385,10 +385,10 @@ export default function Home() {
     }
   }
 
-  async function archiveSelectedLead() {
+  async function toggleArchiveSelectedLead() {
     if (!selectedLead) return;
 
-    if (deleteConfirmLeadId !== selectedLead.id) {
+    if (!selectedLead.archived && deleteConfirmLeadId !== selectedLead.id) {
       setDeleteConfirmLeadId(selectedLead.id);
       return;
     }
@@ -396,15 +396,26 @@ export default function Home() {
     setIsDeletingLead(true);
 
     try {
-      const response = await fetch(`/api/leads?id=${selectedLead.id}`, {
-        method: "DELETE",
-      });
+      const response = selectedLead.archived
+        ? await fetch("/api/leads", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              archived: false,
+              id: selectedLead.id,
+            }),
+          })
+        : await fetch(`/api/leads?id=${selectedLead.id}`, {
+            method: "DELETE",
+          });
       const data = (await response.json().catch(() => null)) as { lead?: Lead } | null;
 
       if (!response.ok || !data?.lead) return;
 
       setLeads((current) => current.map((lead) => (lead.id === selectedLead.id ? data.lead! : lead)));
-      setSelectedLeadId(null);
+      setSelectedLeadId(data.lead.id);
       setDeleteConfirmLeadId(null);
       await loadLeads();
     } finally {
@@ -1256,9 +1267,15 @@ export default function Home() {
 
               <div className="dangerZone">
                 <span>Архив</span>
-                <p>{deleteConfirmLeadId === selectedLead.id ? "Нажмите еще раз, чтобы отправить заявку в архив." : "Архивируйте тестовые, ошибочные или дублирующиеся заявки."}</p>
-                <button disabled={isDeletingLead || selectedLead.archived} onClick={archiveSelectedLead} type="button">
-                  {selectedLead.archived ? "Уже в архиве" : isDeletingLead ? "Архивируем" : deleteConfirmLeadId === selectedLead.id ? "Подтвердить архив" : "В архив"}
+                <p>
+                  {selectedLead.archived
+                    ? "Заявка скрыта из активной воронки. Ее можно вернуть обратно в работу."
+                    : deleteConfirmLeadId === selectedLead.id
+                      ? "Нажмите еще раз, чтобы отправить заявку в архив."
+                      : "Архивируйте тестовые, ошибочные или дублирующиеся заявки."}
+                </p>
+                <button className={selectedLead.archived ? "restoreButton" : ""} disabled={isDeletingLead} onClick={toggleArchiveSelectedLead} type="button">
+                  {selectedLead.archived ? (isDeletingLead ? "Возвращаем" : "Вернуть в работу") : isDeletingLead ? "Архивируем" : deleteConfirmLeadId === selectedLead.id ? "Подтвердить архив" : "В архив"}
                 </button>
               </div>
             </aside>

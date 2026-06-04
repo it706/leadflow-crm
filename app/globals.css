@@ -1484,6 +1484,12 @@ dd {
   font-weight: 820;
 }
 
+.dangerZone button.restoreButton {
+  border-color: rgba(32, 111, 78, 0.28);
+  color: #fff;
+  background: var(--green);
+}
+
 @media (max-width: 1380px) {
   .contentGrid {
     grid-template-columns: 1fr;
