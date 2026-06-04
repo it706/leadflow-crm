@@ -105,10 +105,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, lead });
   }
 
-  if (typeof payload.nextAction === "string" || typeof payload.nextActionDate === "string") {
+  if (typeof payload.nextAction === "string" || typeof payload.nextActionDate === "string" || typeof payload.nextActionTime === "string") {
     const lead = await updateLeadTask(payload.id, {
       nextAction: payload.nextAction,
       nextActionDate: payload.nextActionDate,
+      nextActionTime: payload.nextActionTime,
     });
 
     if (!lead) {

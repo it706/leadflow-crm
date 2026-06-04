@@ -66,6 +66,10 @@ function getPastDateKey(daysAgo: number) {
   return `${year}-${month}-${day}`;
 }
 
+function formatTaskSchedule(lead: Lead) {
+  return [lead.nextActionDate, lead.nextActionTime].filter(Boolean).join(" · ");
+}
+
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [loginPassword, setLoginPassword] = useState("");
@@ -83,6 +87,7 @@ export default function Home() {
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState("");
+  const [taskTime, setTaskTime] = useState("");
   const [noteText, setNoteText] = useState("");
   const [noteError, setNoteError] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -265,7 +270,7 @@ export default function Home() {
   const taskLeads = leads
     .filter((lead) => lead.status !== "Закрыта" && lead.nextAction && lead.nextActionDate)
     .filter((lead) => lead.nextActionDate <= todayDateKey)
-    .sort((first, second) => first.nextActionDate.localeCompare(second.nextActionDate));
+    .sort((first, second) => `${first.nextActionDate} ${first.nextActionTime}`.localeCompare(`${second.nextActionDate} ${second.nextActionTime}`));
   const overdueTasks = taskLeads.filter((lead) => lead.nextActionDate < todayDateKey);
   const todayTasks = taskLeads.filter((lead) => lead.nextActionDate === todayDateKey);
   const leadsWithoutNextAction = openLeads
@@ -276,6 +281,7 @@ export default function Home() {
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
     setTaskDate(selectedLead?.nextActionDate ?? "");
+    setTaskTime(selectedLead?.nextActionTime ?? "");
     setNoteText("");
     setNoteError("");
     setDeleteConfirmLeadId(null);
@@ -288,7 +294,7 @@ export default function Home() {
       phone: selectedLead?.phone ?? "",
       service: selectedLead?.service ?? "",
     });
-  }, [selectedLead?.id, selectedLead?.nextAction, selectedLead?.nextActionDate]);
+  }, [selectedLead?.id, selectedLead?.nextAction, selectedLead?.nextActionDate, selectedLead?.nextActionTime]);
 
   async function updateStatus(leadId: number, status: LeadStatus) {
     setLeads((current) => current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead)));
@@ -322,7 +328,7 @@ export default function Home() {
     if (!selectedLead) return;
 
     setLeads((current) =>
-      current.map((lead) => (lead.id === selectedLead.id ? { ...lead, nextAction: taskText.trim(), nextActionDate: taskDate } : lead)),
+      current.map((lead) => (lead.id === selectedLead.id ? { ...lead, nextAction: taskText.trim(), nextActionDate: taskDate, nextActionTime: taskTime } : lead)),
     );
 
     await fetch("/api/leads", {
@@ -334,6 +340,7 @@ export default function Home() {
         id: selectedLead.id,
         nextAction: taskText.trim(),
         nextActionDate: taskDate,
+        nextActionTime: taskTime,
       }),
     });
 
@@ -551,7 +558,7 @@ export default function Home() {
   }
 
   function exportCsv() {
-    const headers = ["ID", "Архив", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Дата", "Создана", "Комментарий"];
+    const headers = ["ID", "Архив", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Время задачи", "Дата", "Создана", "Комментарий"];
     const rows = leads.map((lead) => [
       lead.id,
       lead.archived ? "Да" : "Нет",
@@ -564,6 +571,7 @@ export default function Home() {
       lead.budget,
       lead.nextAction ?? "",
       lead.nextActionDate ?? "",
+      lead.nextActionTime ?? "",
       lead.createdAtDate ?? "",
       lead.createdAt,
       lead.comment,
@@ -814,7 +822,7 @@ export default function Home() {
                   <strong>{lead.client}</strong>
                   <small>{lead.phone}</small>
                   <p>{lead.nextAction}</p>
-                  <b>{lead.project} · {lead.nextActionDate}</b>
+                  <b>{lead.project} · {formatTaskSchedule(lead)}</b>
                 </button>
               ))
             ) : (
@@ -1014,7 +1022,7 @@ export default function Home() {
                               <strong>{lead.client}</strong>
                               <small>{lead.archived ? `Архив · ${lead.project}` : lead.project}</small>
                               <p>{lead.service}</p>
-                              {lead.nextAction ? <em>{lead.nextActionDate ? `${lead.nextActionDate} · ` : ""}{lead.nextAction}</em> : null}
+                              {lead.nextAction ? <em>{formatTaskSchedule(lead) ? `${formatTaskSchedule(lead)} · ` : ""}{lead.nextAction}</em> : null}
                               <b>{formatMoney(lead.budget)} ₽</b>
                             </button>
                             {nextStatus ? (
@@ -1053,7 +1061,7 @@ export default function Home() {
                   </div>
                   <div>
                    <strong>{lead.service}</strong>
-                    <small>{lead.archived ? `Архив · ${lead.project}` : lead.nextAction ? `Задача: ${lead.nextAction}` : `${lead.project} · ${lead.createdAt}`}</small>
+                    <small>{lead.archived ? `Архив · ${lead.project}` : lead.nextAction ? `Задача: ${lead.nextAction}${formatTaskSchedule(lead) ? ` · ${formatTaskSchedule(lead)}` : ""}` : `${lead.project} · ${lead.createdAt}`}</small>
                   </div>
                   <span className={getPaymentStatus(lead) === "Оплачено" ? "paymentBadge paid" : "paymentBadge"}>{getPaymentStatus(lead)}</span>
                   <strong>{formatMoney(lead.budget)} ₽</strong>
@@ -1191,6 +1199,7 @@ export default function Home() {
                 <div>
                   <span>Следующее действие</span>
                   <p>{selectedLead.nextAction ? selectedLead.nextAction : "Добавьте задачу, чтобы не потерять клиента."}</p>
+                  {formatTaskSchedule(selectedLead) ? <small>{formatTaskSchedule(selectedLead)}</small> : null}
                 </div>
                 <label>
                   Задача
@@ -1199,6 +1208,10 @@ export default function Home() {
                 <label>
                   Дата
                   <input onChange={(event) => setTaskDate(event.target.value)} type="date" value={taskDate} />
+                </label>
+                <label>
+                  Время
+                  <input onChange={(event) => setTaskTime(event.target.value)} type="time" value={taskTime} />
                 </label>
                 <button onClick={saveTask} type="button">
                   Сохранить задачу
