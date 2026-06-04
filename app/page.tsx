@@ -67,6 +67,9 @@ export default function Home() {
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [noteError, setNoteError] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const [copiedPhoneLeadId, setCopiedPhoneLeadId] = useState<number | null>(null);
   const [isEditingLead, setIsEditingLead] = useState(false);
   const [editLead, setEditLead] = useState({
@@ -225,6 +228,8 @@ export default function Home() {
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
     setTaskDate(selectedLead?.nextActionDate ?? "");
+    setNoteText("");
+    setNoteError("");
     setIsEditingLead(false);
     setEditError("");
     setEditLead({
@@ -284,6 +289,44 @@ export default function Home() {
     });
 
     await loadLeads();
+  }
+
+  async function saveNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedLead) return;
+
+    if (!noteText.trim()) {
+      setNoteError("Напишите заметку перед сохранением.");
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteError("");
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: selectedLead.id,
+          note: noteText.trim(),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        setNoteError(data?.message ?? "Не удалось сохранить заметку.");
+        return;
+      }
+
+      setNoteText("");
+      await loadLeads();
+    } finally {
+      setIsSavingNote(false);
+    }
   }
 
   async function createManualLead(event: FormEvent<HTMLFormElement>) {
@@ -1023,6 +1066,20 @@ export default function Home() {
                   <span>История</span>
                   <small>{selectedLeadEvents.length} событий</small>
                 </div>
+                <form className="noteForm" onSubmit={saveNote}>
+                  <label>
+                    Новая заметка
+                    <textarea
+                      onChange={(event) => setNoteText(event.target.value)}
+                      placeholder="Например: клиент попросил перезвонить после 18:00"
+                      value={noteText}
+                    />
+                  </label>
+                  {noteError ? <span>{noteError}</span> : null}
+                  <button disabled={isSavingNote} type="submit">
+                    {isSavingNote ? "Сохраняем" : "Добавить заметку"}
+                  </button>
+                </form>
                 <div className="historyList">
                   {selectedLeadEvents.length > 0 ? (
                     selectedLeadEvents.map((event) => (

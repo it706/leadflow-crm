@@ -49,6 +49,10 @@ export type LeadDetailsPayload = {
   service?: string;
 };
 
+export type LeadNotePayload = {
+  note?: string;
+};
+
 type DbLead = {
   id: number;
   client: string;
@@ -468,4 +472,16 @@ export async function updateLeadDetails(id: number, details: LeadDetailsPayload)
   }
 
   return updatedLead ? mapDbLead(updatedLead) : undefined;
+}
+
+export async function addLeadNote(id: number, payload: LeadNotePayload) {
+  const note = payload.note?.trim();
+  const leads = await getLeads();
+  const lead = leads.find((item) => item.id === id);
+
+  if (!lead || !note) return undefined;
+
+  await createEvent(id, "Заметка менеджера", note);
+
+  return lead;
 }

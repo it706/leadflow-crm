@@ -37,7 +37,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font-family: var(--font);
 }
 
@@ -733,17 +734,29 @@ dt {
   line-height: 1.5;
 }
 
-input {
+input,
+textarea {
   width: 100%;
-  min-height: 46px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 0 14px;
   color: var(--ink);
   background: #fafbf7;
 }
 
-input:focus {
+input {
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+input:focus,
+textarea:focus {
   border-color: var(--accent);
   outline: 3px solid rgba(31, 95, 74, 0.14);
 }
@@ -1278,6 +1291,38 @@ dd {
 .historyHead small {
   color: var(--muted);
   font-weight: 740;
+}
+
+.noteForm {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fafbf7;
+}
+
+.noteForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.noteForm span {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.noteForm button {
+  min-height: 44px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--panel);
+  background: var(--accent);
+  font-weight: 820;
 }
 
 .historyList {
