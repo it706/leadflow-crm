@@ -1084,6 +1084,39 @@ dd {
   line-height: 1.55;
 }
 
+.contactActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.contactActions a,
+.contactActions button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--accent-dark);
+  background: #edf5ef;
+  font-size: 13px;
+  font-weight: 820;
+  text-align: center;
+}
+
+.contactActions a:hover,
+.contactActions button:hover {
+  color: var(--panel);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.contactActions button {
+  grid-column: 1 / -1;
+}
+
 .clientSummary {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1339,7 +1372,8 @@ dd {
   .flowInfo,
   .sectionHead,
   .statusActions,
-  .paymentActions {
+  .paymentActions,
+  .contactActions {
     grid-template-columns: 1fr;
   }
 

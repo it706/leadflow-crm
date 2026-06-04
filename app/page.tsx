@@ -33,6 +33,16 @@ function normalizePhone(phone: string) {
   return digits || phone.trim().toLowerCase();
 }
 
+function getPhoneDigits(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.length === 11 && digits.startsWith("8")) {
+    return `7${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
 function getTodayDateKey() {
   const today = new Date();
   const year = today.getFullYear();
@@ -57,6 +67,7 @@ export default function Home() {
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState("");
+  const [copiedPhoneLeadId, setCopiedPhoneLeadId] = useState<number | null>(null);
   const [manualLead, setManualLead] = useState({
     budget: "",
     client: "",
@@ -342,6 +353,18 @@ export default function Home() {
     setSelectedLeadId(null);
   }
 
+  async function copySelectedPhone() {
+    if (!selectedLead) return;
+
+    try {
+      await navigator.clipboard.writeText(selectedLead.phone);
+      setCopiedPhoneLeadId(selectedLead.id);
+      window.setTimeout(() => setCopiedPhoneLeadId(null), 1800);
+    } catch {
+      setCopiedPhoneLeadId(null);
+    }
+  }
+
   function exportCsv() {
     const headers = ["ID", "Клиент", "Телефон", "Проект", "Услуга", "Статус", "Оплата", "Сумма", "Задача", "Дата задачи", "Создана", "Комментарий"];
     const rows = leads.map((lead) => [
@@ -375,6 +398,9 @@ export default function Home() {
 
     return null;
   }
+
+  const selectedPhoneDigits = selectedLead ? getPhoneDigits(selectedLead.phone) : "";
+  const selectedPhoneHref = selectedPhoneDigits ? `+${selectedPhoneDigits}` : selectedLead?.phone ?? "";
 
   if (isAuthenticated === null) {
     return (
@@ -824,6 +850,18 @@ export default function Home() {
               <div className="commentBox">
                 <span>Детали заявки</span>
                 <p>{selectedLead.comment}</p>
+              </div>
+
+              <div className="contactActions">
+                <a href={`tel:${selectedPhoneHref}`}>Позвонить</a>
+                {selectedPhoneDigits ? (
+                  <a href={`https://wa.me/${selectedPhoneDigits}`} rel="noreferrer" target="_blank">
+                    WhatsApp
+                  </a>
+                ) : null}
+                <button onClick={copySelectedPhone} type="button">
+                  {copiedPhoneLeadId === selectedLead.id ? "Скопировано" : "Скопировать телефон"}
+                </button>
               </div>
 
               {selectedClientStats ? (
