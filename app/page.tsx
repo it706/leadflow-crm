@@ -68,6 +68,16 @@ export default function Home() {
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState("");
   const [copiedPhoneLeadId, setCopiedPhoneLeadId] = useState<number | null>(null);
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editLead, setEditLead] = useState({
+    budget: "",
+    client: "",
+    comment: "",
+    phone: "",
+    service: "",
+  });
+  const [editError, setEditError] = useState("");
+  const [isSavingLeadDetails, setIsSavingLeadDetails] = useState(false);
   const [manualLead, setManualLead] = useState({
     budget: "",
     client: "",
@@ -215,6 +225,15 @@ export default function Home() {
   useEffect(() => {
     setTaskText(selectedLead?.nextAction ?? "");
     setTaskDate(selectedLead?.nextActionDate ?? "");
+    setIsEditingLead(false);
+    setEditError("");
+    setEditLead({
+      budget: selectedLead?.budget ? String(selectedLead.budget) : "",
+      client: selectedLead?.client ?? "",
+      comment: selectedLead?.comment ?? "",
+      phone: selectedLead?.phone ?? "",
+      service: selectedLead?.service ?? "",
+    });
   }, [selectedLead?.id, selectedLead?.nextAction, selectedLead?.nextActionDate]);
 
   async function updateStatus(leadId: number, status: LeadStatus) {
@@ -362,6 +381,53 @@ export default function Home() {
       window.setTimeout(() => setCopiedPhoneLeadId(null), 1800);
     } catch {
       setCopiedPhoneLeadId(null);
+    }
+  }
+
+  async function saveLeadDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedLead) return;
+
+    const budget = Number(editLead.budget.replace(/\D/g, ""));
+
+    if (!editLead.client.trim() || !editLead.phone.trim() || !editLead.service.trim()) {
+      setEditError("Заполните клиента, телефон и услугу.");
+      return;
+    }
+
+    setIsSavingLeadDetails(true);
+    setEditError("");
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          details: {
+            budget,
+            client: editLead.client.trim(),
+            comment: editLead.comment.trim(),
+            phone: editLead.phone.trim(),
+            service: editLead.service.trim(),
+          },
+          id: selectedLead.id,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { lead?: Lead; message?: string } | null;
+
+      if (!response.ok || !data?.lead) {
+        setEditError(data?.message ?? "Не удалось сохранить заявку.");
+        return;
+      }
+
+      setLeads((current) => current.map((lead) => (lead.id === selectedLead.id ? data.lead! : lead)));
+      setIsEditingLead(false);
+      await loadLeads();
+    } finally {
+      setIsSavingLeadDetails(false);
     }
   }
 
@@ -819,6 +885,39 @@ export default function Home() {
               </div>
               <h2>{selectedLead.client}</h2>
               <p>{selectedLead.project}</p>
+
+              <button className="editLeadToggle" onClick={() => setIsEditingLead((current) => !current)} type="button">
+                {isEditingLead ? "Закрыть редактирование" : "Редактировать заявку"}
+              </button>
+
+              {isEditingLead ? (
+                <form className="editLeadForm" onSubmit={saveLeadDetails}>
+                  <label>
+                    Клиент
+                    <input onChange={(event) => setEditLead((current) => ({ ...current, client: event.target.value }))} value={editLead.client} />
+                  </label>
+                  <label>
+                    Телефон
+                    <input onChange={(event) => setEditLead((current) => ({ ...current, phone: event.target.value }))} value={editLead.phone} />
+                  </label>
+                  <label>
+                    Услуга
+                    <input onChange={(event) => setEditLead((current) => ({ ...current, service: event.target.value }))} value={editLead.service} />
+                  </label>
+                  <label>
+                    Сумма
+                    <input inputMode="numeric" onChange={(event) => setEditLead((current) => ({ ...current, budget: event.target.value }))} value={editLead.budget} />
+                  </label>
+                  <label>
+                    Комментарий
+                    <input onChange={(event) => setEditLead((current) => ({ ...current, comment: event.target.value }))} value={editLead.comment} />
+                  </label>
+                  {editError ? <span>{editError}</span> : null}
+                  <button disabled={isSavingLeadDetails} type="submit">
+                    {isSavingLeadDetails ? "Сохраняем" : "Сохранить изменения"}
+                  </button>
+                </form>
+              ) : null}
 
               <dl>
                 <div>

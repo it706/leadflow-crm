@@ -41,6 +41,14 @@ export type LeadTaskPayload = {
   nextActionDate?: string;
 };
 
+export type LeadDetailsPayload = {
+  budget?: number;
+  client?: string;
+  comment?: string;
+  phone?: string;
+  service?: string;
+};
+
 type DbLead = {
   id: number;
   client: string;
@@ -423,6 +431,40 @@ export async function updateLeadTask(id: number, task: LeadTaskPayload) {
 
   if (updatedLead) {
     await createEvent(id, "Задача обновлена", nextAction ? `${nextAction}${nextActionDate ? ` · ${nextActionDate}` : ""}` : "Следующее действие очищено");
+  }
+
+  return updatedLead ? mapDbLead(updatedLead) : undefined;
+}
+
+export async function updateLeadDetails(id: number, details: LeadDetailsPayload) {
+  const sql = await ensureTable();
+  const budget = Math.max(0, Math.round(details.budget ?? 0));
+  const client = details.client?.trim() || "Новый клиент";
+  const phone = details.phone?.trim() || "Не указан";
+  const service = details.service?.trim() || "Заявка без услуги";
+  const comment = details.comment?.trim() || "Детали заявки не указаны.";
+
+  if (!sql) {
+    const leads = globalStore.leadflowLeads ?? demoLeads;
+    globalStore.leadflowLeads = leads.map((lead) => (lead.id === id ? { ...lead, budget, client, comment, phone, service } : lead));
+    const updatedLead = globalStore.leadflowLeads.find((lead) => lead.id === id);
+
+    if (updatedLead) {
+      await createEvent(id, "Заявка отредактирована", `Обновлены клиент, телефон, услуга, сумма или комментарий. Сумма: ${budget} ₽.`);
+    }
+
+    return updatedLead;
+  }
+
+  const [updatedLead] = await sql<DbLead[]>`
+    UPDATE leads
+    SET client = ${client}, phone = ${phone}, service = ${service}, budget = ${budget}, comment = ${comment}
+    WHERE id = ${id}
+    RETURNING id, client, project, phone, service, status, payment_status, budget, created_at, comment, next_action, next_action_date
+  `;
+
+  if (updatedLead) {
+    await createEvent(id, "Заявка отредактирована", `Обновлены клиент, телефон, услуга, сумма или комментарий. Сумма: ${budget} ₽.`);
   }
 
   return updatedLead ? mapDbLead(updatedLead) : undefined;

@@ -3,10 +3,12 @@ import {
   addLead,
   getLeadEvents,
   getLeads,
+  updateLeadDetails,
   updateLeadPaymentStatus,
   updateLeadStatus,
   updateLeadTask,
   type IncomingLead,
+  type LeadDetailsPayload,
   type LeadStatus,
   type LeadTaskPayload,
   type PaymentStatus,
@@ -52,7 +54,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = (await request.json().catch(() => null)) as ({ id?: number; status?: LeadStatus; paymentStatus?: PaymentStatus } & LeadTaskPayload) | null;
+  const payload = (await request.json().catch(() => null)) as ({ id?: number; details?: LeadDetailsPayload; status?: LeadStatus; paymentStatus?: PaymentStatus } & LeadTaskPayload) | null;
   const statuses: LeadStatus[] = ["Новая", "В работе", "Закрыта"];
   const paymentStatuses: PaymentStatus[] = ["Не оплачено", "Оплачено"];
 
@@ -72,6 +74,16 @@ export async function PATCH(request: NextRequest) {
 
   if (payload.paymentStatus && paymentStatuses.includes(payload.paymentStatus)) {
     const lead = await updateLeadPaymentStatus(payload.id, payload.paymentStatus);
+
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, lead });
+  }
+
+  if (payload.details) {
+    const lead = await updateLeadDetails(payload.id, payload.details);
 
     if (!lead) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
