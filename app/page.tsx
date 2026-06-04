@@ -152,7 +152,13 @@ export default function Home() {
   const openLeads = leads.filter((lead) => lead.status !== "Закрыта");
   const inWorkLeads = leads.filter((lead) => lead.status === "В работе");
   const inWorkRevenue = inWorkLeads.reduce((sum, lead) => sum + lead.budget, 0);
-  const paidRevenue = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено").reduce((sum, lead) => sum + lead.budget, 0);
+  const paidLeads = leads.filter((lead) => getPaymentStatus(lead) === "Оплачено");
+  const unpaidLeads = leads.filter((lead) => getPaymentStatus(lead) === "Не оплачено" && lead.status !== "Закрыта");
+  const paidRevenue = paidLeads.reduce((sum, lead) => sum + lead.budget, 0);
+  const unpaidRevenue = unpaidLeads.reduce((sum, lead) => sum + lead.budget, 0);
+  const totalRevenue = leads.reduce((sum, lead) => sum + lead.budget, 0);
+  const averageCheck = leads.length ? Math.round(totalRevenue / leads.length) : 0;
+  const paymentConversion = leads.length ? (paidLeads.length / leads.length) * 100 : 0;
   const selectedLeadEvents = selectedLead ? events.filter((event) => event.leadId === selectedLead.id) : [];
   const projectStats = projects
     .filter((project): project is LeadSource => project !== "Все")
@@ -714,6 +720,11 @@ export default function Home() {
             <small>{isLoading ? "загружаем" : "из подключенных проектов"}</small>
           </article>
           <article>
+            <span>Открытые заявки</span>
+            <strong>{openLeads.length}</strong>
+            <small>новые и находящиеся в работе</small>
+          </article>
+          <article>
             <span>Заявки в работе</span>
             <strong>{inWorkLeads.length}</strong>
             <small>активные обращения клиентов</small>
@@ -727,6 +738,21 @@ export default function Home() {
             <span>Оплачено</span>
             <strong>{formatMoney(paidRevenue)} ₽</strong>
             <small>фактически оплаченные заявки</small>
+          </article>
+          <article>
+            <span>Не оплачено</span>
+            <strong>{formatMoney(unpaidRevenue)} ₽</strong>
+            <small>деньги, которые нужно довести до оплаты</small>
+          </article>
+          <article>
+            <span>Средний чек</span>
+            <strong>{formatMoney(averageCheck)} ₽</strong>
+            <small>средняя сумма заявки</small>
+          </article>
+          <article>
+            <span>Конверсия в оплату</span>
+            <strong>{formatPercent(paymentConversion)}</strong>
+            <small>доля оплаченных заявок</small>
           </article>
         </section>
 
